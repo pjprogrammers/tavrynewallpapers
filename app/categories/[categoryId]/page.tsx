@@ -1,3 +1,4 @@
+
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,6 +18,7 @@ import {
 
 import {
   ArrowLeft,
+  ArrowRight,
   Filter,
   SlidersHorizontal,
   Grid2X2,
@@ -24,14 +26,12 @@ import {
   LayoutGrid
 } from 'lucide-react';
 
-// ✅ Use type with params prop (not an interface)
 type CategoryPageProps = {
   params: {
     categoryId: string;
   };
 };
 
-// ✅ Server Component
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { categoryId } = params;
 
@@ -73,10 +73,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           <div className="absolute inset-0 opacity-20">
             {featuredImage && (
               <div className="relative w-full h-full overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background opacity-80"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background opacity-80" />
                 <Image
                   src={`/wallpapers/${featuredImage}`}
-                  alt={category.name}
+                  alt={category.name || 'Wallpaper Preview'}
                   fill
                   className="object-cover blur-md"
                   sizes="100vw"
@@ -182,7 +182,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
                 <span className="pagination-ellipsis">...</span>
                 <button className="pagination-btn">8</button>
                 <button className="pagination-btn next">
-                  Next <ArrowLeft size={14} className="rotate-180" />
+                  Next <ArrowRight size={14} />
                 </button>
               </div>
             </div>
