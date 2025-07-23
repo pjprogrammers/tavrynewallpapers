@@ -1,8 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   eslint: {
-    ignoreDuringBuilds: true, // ✅ This line forces Vercel to skip ESLint errors
+    ignoreDuringBuilds: true,
   },
   images: {
     domains: ['images.unsplash.com', 'i.pravatar.cc'],
@@ -10,4 +9,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-// final touch

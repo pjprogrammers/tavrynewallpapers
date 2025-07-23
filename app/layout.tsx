@@ -45,12 +45,21 @@ export const metadata: Metadata = {
     title: 'Tavryne Wallpapers | Premium HD & 4K Wallpapers',
     description: 'Discover and download stunning high-quality wallpapers for your desktop, mobile, and tablet.',
     siteName: 'Tavryne Wallpapers',
+    images: [
+      {
+        url: 'https://tavrynewallpapers.vercel.app/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Tavryne Wallpapers Preview Image',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Tavryne Wallpapers | Premium HD & 4K Wallpapers',
     description: 'Discover and download stunning high-quality wallpapers for your desktop, mobile, and tablet.',
     creator: '@tavrynewallpapers',
+    images: ['https://tavrynewallpapers.vercel.app/og-image.png'],
   },
 };
 
