@@ -1,3 +1,4 @@
+// 📁 /app/categories/[categoryId]/page.tsx
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -193,4 +194,13 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       <Footer />
     </div>
   );
+}
+
+// ✅ REQUIRED FOR STATIC ROUTES GENERATION
+export async function generateStaticParams() {
+  const categoryIds = categories.map((cat) => ({
+    categoryId: cat.id
+  }));
+
+  return [...categoryIds, { categoryId: 'all' }];
 }
