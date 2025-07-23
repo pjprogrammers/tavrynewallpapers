@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #050505;
+  --foreground: #f5f5f5;
+  --primary: #00ff84;
+  --primary-dark: #00cc69;
+  --secondary: #00b894;
+  --accent: #00d68f;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+  --card: #0a0a0a;
+  --card-foreground: #f5f5f5;
+  --border: #1a1a1a;
+  --input: #1a1a1a;
+}
+
+body {
+  background: linear-gradient(135deg, var(--background) 0%, #070707 50%, #0a1a12 100%);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  h1 {
+    @apply text-3xl font-bold md:text-4xl;
+  }
+  
+  h2 {
+    @apply text-2xl font-bold md:text-3xl;
+  }
+  
+  h3 {
+    @apply text-xl font-bold md:text-2xl;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-gradient-to-r from-primary-dark to-primary text-black font-medium rounded-md transition-all hover:shadow-[0_0_15px_rgba(0,255,132,0.5)] hover:scale-105 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-muted text-foreground font-medium border border-primary/20 rounded-md transition-all hover:border-primary hover:shadow-[0_0_10px_rgba(0,255,132,0.3)] active:scale-95;
+  }
+  
+  .card {
+    @apply bg-card rounded-lg border border-border p-4 transition-all hover:border-primary/30 hover:shadow-[0_5px_15px_rgba(0,0,0,0.3)];
+  }
+  
+  .input {
+    @apply bg-input text-foreground rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary;
+  }
+
+  .wallpaper-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6;
+  }
+  
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 5px rgba(0, 255, 132, 0.2);
+    }
+    to {
+      box-shadow: 0 0 20px rgba(0, 255, 132, 0.6);
+    }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .bg-grid-pattern {
+    background-image: linear-gradient(to right, rgb(255 255 255 / 0.1) 1px, transparent 1px),
+                       linear-gradient(to bottom, rgb(255 255 255 / 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "cleanUrls": true,
+  "github": {
+    "silent": true,
+    "autoJobCancelation": true
+  }
+} 
