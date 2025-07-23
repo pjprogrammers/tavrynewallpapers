@@ -2,18 +2,18 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import WallpaperGrid from '@/components/WallpaperGrid';
-import CategoryList from '@/components/CategoryList';
-import SearchBar from '@/components/SearchBar';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
+import WallpaperGrid from '../../components/WallpaperGrid';
+import CategoryList from '../../components/CategoryList';
+import SearchBar from '../../components/SearchBar';
 
 import {
   categories,
   getWallpapersByCategory,
   getCategoryById,
   tags
-} from '@/lib/wallpapers';
+} from '../../lib/wallpapers';
 
 import {
   ArrowLeft,
