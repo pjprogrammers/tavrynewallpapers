@@ -99,13 +99,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
             <div className="max-w-2xl">
               <h1 className="text-3xl font-bold mb-2">{category.name}</h1>
-
               {category.description && (
                 <p className="text-muted-foreground mb-4">
                   {category.description}
                 </p>
               )}
-
               <div className="flex gap-4 items-center">
                 {category.count !== undefined && (
                   <span className="text-sm py-1 px-3 bg-primary/10 text-primary rounded-full">
@@ -128,7 +126,10 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           </div>
 
           <div className="mb-8">
-            <CategoryList categories={categories} selectedCategory={category.id} />
+            <CategoryList
+              categories={categories}
+              selectedCategory={category.id}
+            />
           </div>
 
           {relevantTags.length > 0 && (
