@@ -27,14 +27,14 @@ import {
   LayoutGrid
 } from 'lucide-react';
 
-type CategoryPageProps = {
-  params: {
-    categoryId: string;
-  };
-};
-
-export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { categoryId } = params;
+// Remove the old props type and use async function with proper params handling
+export default async function CategoryPage({ 
+  params 
+}: { 
+  params: Promise<{ categoryId: string }> 
+}) {
+  // Await the params promise to get the actual values
+  const { categoryId } = await params;
 
   let category;
   let wallpapers;
@@ -203,4 +203,30 @@ export async function generateStaticParams() {
   }));
 
   return [...categoryIds, { categoryId: 'all' }];
+}
+
+// ✅ Optional: Add metadata generation if needed
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: Promise<{ categoryId: string }> 
+}) {
+  const { categoryId } = await params;
+  
+  let category;
+  if (categoryId === 'all') {
+    category = {
+      id: 'all',
+      name: 'All Categories',
+      description: 'Explore our complete collection of high-quality wallpapers across all categories.'
+    };
+  } else {
+    category = getCategoryById(categoryId);
+    if (!category) return {};
+  }
+
+  return {
+    title: `${category.name} - Wallpaper Collection`,
+    description: category.description,
+  };
 }

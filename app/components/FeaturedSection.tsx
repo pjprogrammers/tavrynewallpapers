@@ -54,15 +54,15 @@ const FeaturedSection = () => {
             <TrendingUp size={24} className="text-primary" />
             <h2 className="text-2xl font-bold">Featured Wallpapers</h2>
           </div>
-          <Link 
-            href="/featured" 
+          <Link
+            href="/featured"
             className="flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             View all <ChevronRight size={16} />
           </Link>
         </div>
-        
-        <motion.div 
+
+        <motion.div
           className="wallpaper-grid"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

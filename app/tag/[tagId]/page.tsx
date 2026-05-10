@@ -10,13 +10,11 @@ import { getTagById, getWallpapersByTag } from "../../lib/wallpapers";
 import { ArrowLeft, Tag } from "lucide-react";
 
 interface TagPageProps {
-  params: {
-    tagId: string;
-  };
+  params: Promise<{ tagId: string }>;
 }
 
-export default function TagPage({ params }: TagPageProps) {
-  const { tagId } = params;
+export default async function TagPage({ params }: TagPageProps) {
+  const { tagId } = await params;
   
   const tag = getTagById(tagId);
   if (!tag) return notFound();

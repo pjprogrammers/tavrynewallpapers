@@ -23,13 +23,12 @@ const formatNumber = (num: number): string => {
 };
 
 interface WallpaperPageProps {
-  params: {
-    slug: string;
-  };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: WallpaperPageProps): Promise<Metadata> {
-  const wallpaper = getWallpaperBySlug(params.slug);
+  const { slug } = await params;
+  const wallpaper = getWallpaperBySlug(slug);
   
   if (!wallpaper) {
     return {
@@ -51,8 +50,9 @@ export async function generateMetadata({ params }: WallpaperPageProps): Promise<
   };
 }
 
-export default function WallpaperPage({ params }: WallpaperPageProps) {
-  const wallpaper = getWallpaperBySlug(params.slug);
+export default async function WallpaperPage({ params }: WallpaperPageProps) {
+  const { slug } = await params;
+  const wallpaper = getWallpaperBySlug(slug);
   if (!wallpaper) return notFound();
   
   const category = getCategoryById(wallpaper.categoryId);
