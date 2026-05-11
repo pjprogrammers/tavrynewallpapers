@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
+import { useState, useEffect, useMemo } from "react"; // Added useMemo
 import Link from "next/link";
-
 import { usePathname } from "next/navigation";
-
 import {
   Search,
   Menu,
@@ -18,26 +15,33 @@ import {
   Tag,
   LogOut,
   UserPlus,
+  User,   // Added User icon for profile link
 } from "lucide-react";
-
 import SearchBar from "./SearchBar";
-
 import { useAuth } from "@/lib/auth-context";
-
 import { signOut as firebaseSignOut } from "@/lib/auth";
 
 const Header = () => {
   const pathname = usePathname();
-
   const { user } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
   const [scrolled, setScrolled] = useState(false);
-
   const [searchOpen, setSearchOpen] = useState(false);
-
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  /**
+   * Generate a reliable avatar URL:
+   * - Uses user's photoURL if available
+   * - Falls back to a DiceBear initial avatar based on display name or email
+   */
+  const avatarUrl = useMemo(() => {
+    if (user?.photoURL) return user.photoURL;
+    const seed = encodeURIComponent(
+      user?.displayName || user?.email || "User"
+    );
+    return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
+  }, [user]);
 
   /**
    * Handle header scroll effect
@@ -46,12 +50,8 @@ const Header = () => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
     };
-
     window.addEventListener("scroll", handleScroll);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   /**
@@ -59,7 +59,6 @@ const Header = () => {
    */
   useEffect(() => {
     setIsMenuOpen(false);
-
     setUserMenuOpen(false);
   }, [pathname]);
 
@@ -68,10 +67,7 @@ const Header = () => {
    */
   const toggleMenu = () => {
     setIsMenuOpen((prev) => !prev);
-
-    if (!isMenuOpen) {
-      setSearchOpen(false);
-    }
+    if (!isMenuOpen) setSearchOpen(false);
   };
 
   /**
@@ -79,10 +75,7 @@ const Header = () => {
    */
   const toggleSearch = () => {
     setSearchOpen((prev) => !prev);
-
-    if (!searchOpen) {
-      setIsMenuOpen(false);
-    }
+    if (!searchOpen) setIsMenuOpen(false);
   };
 
   /**
@@ -91,7 +84,6 @@ const Header = () => {
   const handleLogout = async () => {
     try {
       await firebaseSignOut();
-
       setUserMenuOpen(false);
     } catch (error) {
       console.error("Logout error:", error);
@@ -102,10 +94,7 @@ const Header = () => {
    * Check active routes
    */
   const isActive = (path: string) => {
-    if (path === "/") {
-      return pathname === "/";
-    }
-
+    if (path === "/") return pathname === "/";
     return pathname.startsWith(path);
   };
 
@@ -116,50 +105,32 @@ const Header = () => {
         <Link href="/" className="site-logo">
           <span className="logo-text">
             <span className="logo-primary">Tavryne</span>
-
             <span className="logo-secondary">Wallpapers</span>
           </span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="desktop-nav">
-          <Link
-            href="/"
-            className={`nav-link ${isActive("/") ? "active" : ""}`}
-          >
+          <Link href="/" className={`nav-link ${isActive("/") ? "active" : ""}`}>
             <Home size={18} className="nav-icon" />
-
             <span>Home</span>
           </Link>
-
           <Link
             href="/categories/all"
-            className={`nav-link ${
-              isActive("/categories") ? "active" : ""
-            }`}
+            className={`nav-link ${isActive("/categories") ? "active" : ""}`}
           >
             <Grid size={18} className="nav-icon" />
-
             <span>Categories</span>
           </Link>
-
           <Link
             href="/featured"
-            className={`nav-link ${
-              isActive("/featured") ? "active" : ""
-            }`}
+            className={`nav-link ${isActive("/featured") ? "active" : ""}`}
           >
             <ImageIcon size={18} className="nav-icon" />
-
             <span>Featured</span>
           </Link>
-
-          <Link
-            href="/all"
-            className={`nav-link ${isActive("/all") ? "active" : ""}`}
-          >
+          <Link href="/all" className={`nav-link ${isActive("/all") ? "active" : ""}`}>
             <Tag size={18} className="nav-icon" />
-
             <span>All Wallpapers</span>
           </Link>
         </nav>
@@ -168,9 +139,7 @@ const Header = () => {
         <div className="desktop-actions">
           {/* Search */}
           <button
-            className={`header-icon-button ${
-              searchOpen ? "active" : ""
-            }`}
+            className={`header-icon-button ${searchOpen ? "active" : ""}`}
             onClick={toggleSearch}
             aria-label="Search"
             type="button"
@@ -181,9 +150,7 @@ const Header = () => {
           {/* Downloads */}
           <Link
             href="/downloads"
-            className={`header-icon-button ${
-              isActive("/downloads") ? "active" : ""
-            }`}
+            className={`header-icon-button ${isActive("/downloads") ? "active" : ""}`}
             aria-label="Downloads"
           >
             <Download size={20} />
@@ -192,9 +159,7 @@ const Header = () => {
           {/* Favorites */}
           <Link
             href="/favorites"
-            className={`header-icon-button ${
-              isActive("/favorites") ? "active" : ""
-            }`}
+            className={`header-icon-button ${isActive("/favorites") ? "active" : ""}`}
             aria-label="Favorites"
           >
             <Heart size={20} />
@@ -203,11 +168,7 @@ const Header = () => {
           {/* User Menu */}
           <div className="relative">
             <button
-              onClick={() =>
-                user
-                  ? setUserMenuOpen((prev) => !prev)
-                  : null
-              }
+              onClick={() => (user ? setUserMenuOpen((prev) => !prev) : null)}
               className="header-icon-button relative flex items-center"
               aria-label="User menu"
               type="button"
@@ -215,13 +176,10 @@ const Header = () => {
               {user ? (
                 <>
                   <img
-                    src={
-                      user.photoURL || "/globe.svg"
-                    }
+                    src={avatarUrl}   // 🟢 Now always shows a real image
                     alt="User avatar"
                     className="h-8 w-8 rounded-full border border-primary/20"
                   />
-
                   <span className="ml-2 hidden md:inline-block">
                     {user.displayName?.split(" ")[0] || "User"}
                   </span>
@@ -239,24 +197,33 @@ const Header = () => {
                 <div className="py-3 px-4">
                   <div className="flex items-center space-x-3">
                     <img
-                      src={
-                        user.photoURL ||
-                        "/default-avatar.png"
-                      }
+                      src={avatarUrl}    // 🟢 Consistent avatar in dropdown
                       alt="User avatar"
                       className="h-10 w-10 rounded-full border border-primary/20"
                     />
-
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">
                         {user.displayName || "User"}
                       </p>
-
                       <p className="truncate text-xs text-muted-foreground">
                         {user.email}
                       </p>
                     </div>
                   </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                {/* 🟢 ADDED: Profile link */}
+                <div className="py-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex w-full items-center space-x-3 px-4 py-2 text-left text-sm text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                  >
+                    <User size={18} />
+                    <span>My Profile</span>
+                  </Link>
                 </div>
 
                 <div className="border-t border-border" />
@@ -268,7 +235,6 @@ const Header = () => {
                     type="button"
                   >
                     <LogOut size={18} />
-
                     <span>Logout</span>
                   </button>
                 </div>
@@ -284,96 +250,58 @@ const Header = () => {
           aria-label="Toggle menu"
           type="button"
         >
-          {isMenuOpen ? (
-            <X size={24} />
-          ) : (
-            <Menu size={24} />
-          )}
+          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Search Panel */}
-      <div
-        className={`search-panel ${
-          searchOpen ? "open" : ""
-        }`}
-      >
+      <div className={`search-panel ${searchOpen ? "open" : ""}`}>
         <div className="container">
-          <SearchBar
-            onSearch={() => setSearchOpen(false)}
-          />
+          <SearchBar onSearch={() => setSearchOpen(false)} />
         </div>
       </div>
 
       {/* Mobile Navigation */}
-      <div
-        className={`mobile-nav ${
-          isMenuOpen ? "open" : ""
-        }`}
-      >
+      <div className={`mobile-nav ${isMenuOpen ? "open" : ""}`}>
         <div className="container">
           <nav className="mobile-nav-menu">
             <Link
               href="/"
-              className={`mobile-nav-link ${
-                isActive("/") ? "active" : ""
-              }`}
+              className={`mobile-nav-link ${isActive("/") ? "active" : ""}`}
               onClick={() => setIsMenuOpen(false)}
             >
-              <Home
-                size={20}
-                className="mobile-nav-icon"
-              />
-
+              <Home size={20} className="mobile-nav-icon" />
               <span>Home</span>
             </Link>
 
             <Link
               href="/categories/all"
               className={`mobile-nav-link ${
-                isActive("/categories")
-                  ? "active"
-                  : ""
+                isActive("/categories") ? "active" : ""
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              <Grid
-                size={20}
-                className="mobile-nav-icon"
-              />
-
+              <Grid size={20} className="mobile-nav-icon" />
               <span>Categories</span>
             </Link>
 
             <Link
               href="/featured"
               className={`mobile-nav-link ${
-                isActive("/featured")
-                  ? "active"
-                  : ""
+                isActive("/featured") ? "active" : ""
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              <ImageIcon
-                size={20}
-                className="mobile-nav-icon"
-              />
-
+              <ImageIcon size={20} className="mobile-nav-icon" />
               <span>Featured</span>
             </Link>
 
             <Link
               href="/all"
-              className={`mobile-nav-link ${
-                isActive("/all") ? "active" : ""
-              }`}
+              className={`mobile-nav-link ${isActive("/all") ? "active" : ""}`}
               onClick={() => setIsMenuOpen(false)}
             >
-              <Tag
-                size={20}
-                className="mobile-nav-icon"
-              />
-
+              <Tag size={20} className="mobile-nav-icon" />
               <span>All Wallpapers</span>
             </Link>
 
@@ -382,34 +310,22 @@ const Header = () => {
             <Link
               href="/downloads"
               className={`mobile-nav-link ${
-                isActive("/downloads")
-                  ? "active"
-                  : ""
+                isActive("/downloads") ? "active" : ""
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              <Download
-                size={20}
-                className="mobile-nav-icon"
-              />
-
+              <Download size={20} className="mobile-nav-icon" />
               <span>Downloads</span>
             </Link>
 
             <Link
               href="/favorites"
               className={`mobile-nav-link ${
-                isActive("/favorites")
-                  ? "active"
-                  : ""
+                isActive("/favorites") ? "active" : ""
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              <Heart
-                size={20}
-                className="mobile-nav-icon"
-              />
-
+              <Heart size={20} className="mobile-nav-icon" />
               <span>Favorites</span>
             </Link>
 
@@ -419,15 +335,11 @@ const Header = () => {
               className="mobile-search-button"
               onClick={() => {
                 setIsMenuOpen(false);
-
-                setTimeout(() => {
-                  setSearchOpen(true);
-                }, 300);
+                setTimeout(() => setSearchOpen(true), 300);
               }}
               type="button"
             >
               <Search size={20} />
-
               <span>Search</span>
             </button>
           </nav>
