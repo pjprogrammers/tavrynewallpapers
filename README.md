@@ -5,6 +5,26 @@
 
 A modern, responsive wallpaper discovery and download application built with Next.js. Browse through a curated collection of high-quality wallpapers for your desktop and mobile devices.
 
+## 🔐 Authentication System
+
+This application includes a full authentication system powered by Firebase Authentication with support for:
+- Email & Password signup/login
+- Google authentication
+- GitHub authentication
+- Persistent sessions
+- Protected routes
+- User profile management in Firestore
+
+## 🌟 Features
+
+- **Responsive Design**: Perfect viewing experience across all devices
+- **High-Quality Wallpapers**: Curated collection of premium wallpapers
+- **Fast Loading**: Optimized for performance with Next.js
+- **Easy Download**: Simple one-click download functionality
+- **Search & Categories**: Find exactly what you're looking for
+- **User Authentication**: Secure login/signup with multiple providers
+- **Profile Management**: Save user preferences and collections
+
 ## 🌟 Features
 
 - **Responsive Design**: Perfect viewing experience across all devices

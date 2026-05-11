@@ -1,6 +1,7 @@
 import './styles.css';
 import { Inter, Montserrat, Poppins } from 'next/font/google';
 import type { Metadata, Viewport } from 'next';
+import { AuthProvider } from '@/lib/auth-context';
 
 // ----------------------
 // Fonts Setup
@@ -119,7 +120,9 @@ export default function RootLayout({
       lang="en"
       className={`${montserrat.variable} ${inter.variable} ${poppins.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

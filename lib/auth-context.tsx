@@ -1,0 +1,99 @@
+"use client";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { onAuthStateChanged, type User } from "firebase/auth";
+
+import { auth } from "./firebase";
+
+/**
+ * Auth context type
+ */
+interface AuthContextType {
+  user: User | null;
+
+  loading: boolean;
+}
+
+/**
+ * Create auth context
+ */
+const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
+
+/**
+ * Auth Provider Component
+ */
+export const AuthProvider = ({
+  children,
+}: {
+  children: ReactNode;
+}) => {
+  /**
+   * Current authenticated user
+   */
+  const [user, setUser] = useState<User | null>(null);
+
+  /**
+   * Loading state while Firebase checks auth session
+   */
+  const [loading, setLoading] = useState(true);
+
+  /**
+   * Listen for authentication state changes
+   */
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (currentUser) => {
+        setUser(currentUser);
+
+        setLoading(false);
+      }
+    );
+
+    /**
+     * Cleanup listener
+     */
+    return () => unsubscribe();
+  }, []);
+
+  /**
+   * Prevent rendering app before auth finishes loading
+   */
+  if (loading) {
+    return null;
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+/**
+ * Custom hook for accessing auth context
+ */
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  if (context === undefined) {
+    throw new Error(
+      "useAuth must be used within an AuthProvider"
+    );
+  }
+
+  return context;
+};
