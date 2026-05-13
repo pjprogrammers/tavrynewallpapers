@@ -2276,6 +2276,7 @@ main {
   border-radius: var(--radius-lg);
   overflow: hidden;
   transition: all var(--transition-default);
+  height: 100%;
 }
 
 .featured-item-v2:hover {

@@ -124,7 +124,7 @@ export default function CategoryPage() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 pt-20">
-        <section className="relative overflow-hidden bg-gradient-to-br from-background via-muted to-card">
+        <section className="relative min-h-[300px] overflow-hidden bg-gradient-to-br from-background via-muted to-card">
           <div className="absolute inset-0 opacity-20">
             {featuredImage && (
               <div className="relative w-full h-full overflow-hidden">
