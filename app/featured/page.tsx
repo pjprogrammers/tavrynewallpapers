@@ -35,7 +35,7 @@ export default function FeaturedPage() {
           </div>
           
           {/* Wallpapers */}
-          <WallpaperGrid wallpapers={featuredWallpapers} />
+          <WallpaperGrid wallpapers={featuredWallpapers} source="featured" />
         </div>
       </main>
       <Footer />

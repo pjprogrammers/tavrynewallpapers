@@ -20,6 +20,7 @@ export interface Wallpaper {
   tags: string[];
   views: number;
   downloads: number;
+  likes?: number;
   featured?: boolean;
   trending?: boolean;
   uploadDate: string;
@@ -71,6 +72,7 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "gradient", "blue", "green"],
     views: 2340,
     downloads: 1120,
+    likes: 392,
     featured: true,
     trending: true,
     uploadDate: "2023-12-01",
@@ -86,6 +88,7 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "mountain", "forest"],
     views: 1890,
     downloads: 980,
+    likes: 343,
     featured: true,
     uploadDate: "2023-12-05",
     resolution: "3840x2160"
@@ -100,6 +103,7 @@ export const wallpapers: Wallpaper[] = [
     tags: ["5k", "night", "space"],
     views: 3450,
     downloads: 1680,
+    likes: 588,
     trending: true,
     uploadDate: "2023-12-10",
     resolution: "5120x2880"
@@ -114,6 +118,7 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "dark", "black"],
     views: 2120,
     downloads: 1340,
+    likes: 469,
     featured: true,
     uploadDate: "2023-12-15",
     resolution: "3840x2160"
@@ -128,6 +133,7 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "night", "dark"],
     views: 1780,
     downloads: 890,
+    likes: 312,
     trending: true,
     uploadDate: "2023-12-20",
     resolution: "3840x2160"
@@ -321,6 +327,7 @@ export function addNewWallpaper(
     tags,
     views: 1000 + (id * 50),
     downloads: 500 + (id * 25),
+    likes: Math.floor((500 + (id * 25)) * 0.35),
     featured,
     trending,
     uploadDate: new Date().toISOString().split('T')[0],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react"; // Added useMemo
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,7 +15,9 @@ import {
   Tag,
   LogOut,
   UserPlus,
-  User,   // Added User icon for profile link
+  User,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 import SearchBar from "./SearchBar";
 import { useAuth } from "@/lib/auth-context";
@@ -29,6 +31,8 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   /**
    * Generate a reliable avatar URL:
@@ -63,6 +67,40 @@ const Header = () => {
   }, [pathname]);
 
   /**
+   * Close dropdown when clicking outside
+   */
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuOpen &&
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
+
+  /**
+   * Close dropdown on escape key
+   */
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && userMenuOpen) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [userMenuOpen]);
+
+  /**
    * Toggle mobile menu
    */
   const toggleMenu = () => {
@@ -79,6 +117,13 @@ const Header = () => {
   };
 
   /**
+   * Toggle user dropdown
+   */
+  const toggleUserMenu = () => {
+    setUserMenuOpen((prev) => !prev);
+  };
+
+  /**
    * Logout handler
    */
   const handleLogout = async () => {
@@ -88,6 +133,13 @@ const Header = () => {
     } catch (error) {
       console.error("Logout error:", error);
     }
+  };
+
+  /**
+   * Handle menu item click
+   */
+  const handleMenuItemClick = () => {
+    setUserMenuOpen(false);
   };
 
   /**
@@ -166,81 +218,113 @@ const Header = () => {
           </Link>
 
           {/* User Menu */}
-          <div className="relative">
-            <button
-              onClick={() => (user ? setUserMenuOpen((prev) => !prev) : null)}
-              className="header-icon-button relative flex items-center"
-              aria-label="User menu"
-              type="button"
-            >
-              {user ? (
-                <>
-                  <img
-                    src={avatarUrl}   // 🟢 Now always shows a real image
-                    alt="User avatar"
-                    className="h-8 w-8 rounded-full border border-primary/20"
-                  />
-                  <span className="ml-2 hidden md:inline-block">
-                    {user.displayName?.split(" ")[0] || "User"}
-                  </span>
-                </>
-              ) : (
-                <Link href="/signup">
-                  <UserPlus size={20} />
-                </Link>
-              )}
-            </button>
+          {user && (
+            <div className="user-menu-container">
+              <button
+                ref={buttonRef}
+                onClick={toggleUserMenu}
+                className={`user-menu-trigger ${userMenuOpen ? "active" : ""}`}
+                aria-label="User menu"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
+                type="button"
+              >
+                <img
+                  src={avatarUrl}
+                  alt="User avatar"
+                  className="user-avatar"
+                />
+                <ChevronDown
+                  size={14}
+                  className={`user-menu-chevron ${userMenuOpen ? "open" : ""}`}
+                />
+              </button>
 
-            {/* Dropdown */}
-            {user && userMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 rounded-md border border-border bg-card shadow-lg z-50">
-                <div className="py-3 px-4">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={avatarUrl}    // 🟢 Consistent avatar in dropdown
-                      alt="User avatar"
-                      className="h-10 w-10 rounded-full border border-primary/20"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {user.displayName || "User"}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {user.email}
-                      </p>
-                    </div>
+              {/* Dropdown Menu */}
+              <div
+                ref={menuRef}
+                className={`user-dropdown ${userMenuOpen ? "open" : ""}`}
+                role="menu"
+              >
+                {/* Header with user info */}
+                <div className="user-dropdown-header">
+                  <img
+                    src={avatarUrl}
+                    alt="User avatar"
+                    className="user-dropdown-avatar"
+                  />
+                  <div className="user-dropdown-info">
+                    <span className="user-dropdown-name">
+                      {user.displayName || "User"}
+                    </span>
+                    <span className="user-dropdown-email">
+                      {user.email}
+                    </span>
                   </div>
                 </div>
 
-                <div className="border-t border-border" />
-
-                {/* 🟢 ADDED: Profile link */}
-                <div className="py-1">
+                {/* Menu Items */}
+                <div className="user-dropdown-items">
                   <Link
                     href="/profile"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex w-full items-center space-x-3 px-4 py-2 text-left text-sm text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                    className="user-dropdown-item"
+                    onClick={handleMenuItemClick}
+                    role="menuitem"
                   >
-                    <User size={18} />
-                    <span>My Profile</span>
+                    <User size={16} />
+                    <span>Your Profile</span>
+                  </Link>
+                  <Link
+                    href="/favorites"
+                    className="user-dropdown-item"
+                    onClick={handleMenuItemClick}
+                    role="menuitem"
+                  >
+                    <Heart size={16} />
+                    <span>Your Favorites</span>
+                  </Link>
+                  <Link
+                    href="/downloads"
+                    className="user-dropdown-item"
+                    onClick={handleMenuItemClick}
+                    role="menuitem"
+                  >
+                    <Download size={16} />
+                    <span>Your Downloads</span>
+                  </Link>
+                  <Link
+                    href="/profile"
+                    className="user-dropdown-item"
+                    onClick={handleMenuItemClick}
+                    role="menuitem"
+                  >
+                    <Settings size={16} />
+                    <span>Settings</span>
                   </Link>
                 </div>
 
-                <div className="border-t border-border" />
-
-                <div className="py-1">
+                {/* Footer with logout */}
+                <div className="user-dropdown-footer">
                   <button
                     onClick={handleLogout}
-                    className="flex w-full items-center space-x-3 px-4 py-2 text-left text-sm text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                    type="button"
+                    className="user-dropdown-item user-dropdown-logout"
+                    role="menuitem"
                   >
-                    <LogOut size={18} />
-                    <span>Logout</span>
+                    <LogOut size={16} />
+                    <span>Sign out</span>
                   </button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Not logged in */}
+          {!user && (
+            <Link href="/signup" className="header-signup-btn">
+              <UserPlus size={18} />
+              <span>Sign Up</span>
+            </Link>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}

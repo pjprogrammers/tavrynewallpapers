@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* =========================================================
+       🔐 HELPER FUNCTIONS
+    ========================================================= */
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidString(value, minLen, maxLen) {
+      return value is string && value.size() >= minLen && value.size() <= maxLen;
+    }
+
+    function isValidUrl(value) {
+      return value is string && (value.size() == 0 || value.matches('^https?://[^\\s]+$'));
+    }
+
+    /* =========================================================
+       👤 USERS COLLECTION
+    ========================================================= */
+    match /users/{userId} {
+      // Anyone can read user profiles (for display)
+      allow read: if true;
+
+      // Only the user can update their own profile
+      allow update: if isOwner(userId)
+        && (
+          // Validating specific fields
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email', 'uid', 'provider', 'createdAt', 'isActive'])
+          || resource.data.isActive == true
+        );
+
+      // Users can create their own document (during signup)
+      allow create: if isOwner(userId)
+        && isValidString(request.resource.data.displayName, 0, 100)
+        && isValidString(request.resource.data.email, 0, 254)
+        && isValidUrl(request.resource.data.photoURL);
+    }
+
+    /* =========================================================
+       🖼️ WALLPAPERS COLLECTION
+    ========================================================= */
+    match /wallpapers/{wallpaperId} {
+      // Wallpapers are publicly readable
+      allow read: if true;
+
+      // Only authenticated users can create wallpapers
+      allow create: if isAuthenticated()
+        && isValidString(request.resource.data.title, 1, 200)
+        && isValidString(request.resource.data.slug, 1, 200);
+
+      // Only authenticated users can update (admins in production would have more specific rules)
+      allow update: if isAuthenticated();
+
+      // Only authenticated users can delete
+      allow delete: if isAuthenticated();
+    }
+
+    /* =========================================================
+       📊 WALLPAPER STATS COLLECTION
+    ========================================================= */
+    match /wallpaperStats/{wallpaperId} {
+      // Stats are publicly readable
+      allow read: if true;
+
+      // Allow anyone to update stats (atomic increments) - for tracking views/downloads
+      // In production, consider using Firebase Admin SDK or Cloud Functions for better security
+      allow write: if true;
+    }
+
+    /* =========================================================
+       👁️ VIEWS SUB-COLLECTION
+    ========================================================= */
+    match /wallpapers/{wallpaperId}/views/{viewId} {
+      // Anyone can record views
+      allow read, create: if true;
+    }
+
+    /* =========================================================
+       ❤️ FAVORITES COLLECTION
+    ========================================================= */
+    match /favorites/{favoriteId} {
+      // Anyone can read favorites (to show counts)
+      allow read: if true;
+
+      // Users can only manage their own favorites
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && favoriteId == request.auth.uid + '_' + request.resource.data.wallpaperId;
+
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    /* =========================================================
+       👍 LIKES COLLECTION
+    ========================================================= */
+    match /likes/{likeId} {
+      // Anyone can read likes (to show counts)
+      allow read: if true;
+
+      // Users can only manage their own likes
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && likeId == request.auth.uid + '_' + request.resource.data.wallpaperId;
+
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    /* =========================================================
+       ⬇️ DOWNLOADS COLLECTION
+    ========================================================= */
+    match /downloads/{downloadId} {
+      // Users can read their own downloads
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Anyone can create downloads (for tracking)
+      // Note: UserId is optional for anonymous downloads
+      allow create: if true;
+
+      // Downloads can only be deleted by the user
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    /* =========================================================
+       👁️ IMPRESSIONS COLLECTION
+    ========================================================= */
+    match /impressions/{impressionId} {
+      // Impressions are publicly readable for analytics
+      allow read: if true;
+
+      // Anyone can record impressions
+      allow create: if true;
+    }
+
+    /* =========================================================
+       👆 CLICKS COLLECTION
+    ========================================================= */
+    match /clicks/{clickId} {
+      // Clicks are publicly readable for analytics
+      allow read: if true;
+
+      // Anyone can record clicks
+      allow create: if true;
+    }
+
+    /* =========================================================
+       ⏱️ RATE LIMITS COLLECTION
+    ========================================================= */
+    match /rateLimits/{rateLimitId} {
+      // Users can read their own rate limits
+      allow read: if isAuthenticated() && rateLimitId == request.auth.uid + '_' + resource.data.action;
+
+      // Server-side only for rate limits
+      // For client-side, we use a workaround
+      allow write: if false;
+    }
+  }
+}

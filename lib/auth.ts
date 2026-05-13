@@ -18,11 +18,13 @@ import {
 
 import {
   doc,
-  setDoc,
-  getDoc,
   updateDoc,
-  serverTimestamp
+  setDoc,
+  serverTimestamp,
 } from "firebase/firestore";
+
+import { createOrUpdateUser, COLLECTIONS } from "./firestore";
+import type { ProviderType } from "./firestore-types";
 
 /* =========================================================
    🔐 SECURITY HELPERS
@@ -300,55 +302,94 @@ export const resetPassword = async (email: string) => {
 };
 
 /* =========================================================
+   👤 PROFILE UPDATE
+========================================================= */
+
+/**
+ * Update user profile - syncs both Firebase Auth and Firestore
+ */
+export const updateAuthProfile = async (
+  user: User,
+  data: {
+    displayName?: string;
+    photoURL?: string;
+  }
+): Promise<{ error?: string }> => {
+  try {
+    // Update Firebase Auth (displayName and photoURL)
+    await updateProfile(user, {
+      displayName: data.displayName,
+      photoURL: data.photoURL,
+    });
+
+    // Update Firestore user document
+    await updateUserFirestoreProfile(user.uid, {
+      displayName: data.displayName,
+      photoURL: data.photoURL,
+    });
+
+    return { error: undefined };
+  } catch (error: any) {
+    console.error("[Profile] Update failed:", error);
+    return { error: getAuthErrorMessage(error.code) || "Failed to update profile." };
+  }
+};
+
+/**
+ * Update user photo URL
+ */
+export const updateUserPhotoURL = async (
+  user: User,
+  photoURL: string
+): Promise<{ error?: string }> => {
+  return updateAuthProfile(user, { photoURL });
+};
+
+/* =========================================================
    🧠 FIRESTORE USERS
 ========================================================= */
 
 const createUserDocument = async (user: User) => {
-  const userRef = doc(db, "users", user.uid);
-
-  const userDoc = await getDoc(userRef);
-
-  if (!userDoc.exists()) {
-    await setDoc(userRef, {
-      uid: user.uid,
-      displayName: user.displayName || "",
-      email: user.email || "",
-      photoURL: user.photoURL || "",
-      provider: user.providerData[0]?.providerId || "",
-      createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp()
-    });
-  }
+  await createOrUpdateUser(user.uid, {
+    displayName: user.displayName || "",
+    email: user.email || "",
+    photoURL: user.photoURL || "",
+    provider: (user.providerData[0]?.providerId || "password") as ProviderType,
+  });
 };
 
 const upsertUserDocument = async (user: User) => {
-  const userRef = doc(db, "users", user.uid);
-
-  const userDoc = await getDoc(userRef);
-
-  if (userDoc.exists()) {
-    await updateDoc(userRef, {
-      lastLogin: serverTimestamp()
-    });
-  } else {
-    await setDoc(userRef, {
-      uid: user.uid,
-      displayName: user.displayName || "",
-      email: user.email || "",
-      photoURL: user.photoURL || "",
-      provider: user.providerData[0]?.providerId || "",
-      createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp()
-    });
-  }
+  await createOrUpdateUser(user.uid, {
+    displayName: user.displayName || "",
+    email: user.email || "",
+    photoURL: user.photoURL || "",
+    provider: (user.providerData[0]?.providerId || "password") as ProviderType,
+  });
 };
 
 const updateUserLastLogin = async (uid: string) => {
-  const userRef = doc(db, "users", uid);
-
+  const userRef = doc(db, COLLECTIONS.USERS, uid);
   await updateDoc(userRef, {
-    lastLogin: serverTimestamp()
+    lastLogin: serverTimestamp(),
   });
+};
+
+export const updateUserFirestoreProfile = async (
+  uid: string,
+  data: { displayName?: string; photoURL?: string }
+) => {
+  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  const updateData: Record<string, unknown> = { updatedAt: serverTimestamp() };
+
+  if (data.displayName !== undefined) {
+    updateData.displayName = data.displayName;
+  }
+  if (data.photoURL !== undefined && data.photoURL !== "") {
+    updateData.photoURL = data.photoURL;
+  }
+
+  // Use setDoc with merge: true to create document if it doesn't exist
+  await setDoc(userRef, updateData, { merge: true });
 };
 
 export default {
@@ -357,5 +398,7 @@ export default {
   signInWithGoogle,
   signInWithGitHub,
   signOut,
-  resetPassword
+  resetPassword,
+  updateAuthProfile,
+  updateUserPhotoURL,
 };

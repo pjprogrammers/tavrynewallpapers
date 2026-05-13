@@ -12,17 +12,20 @@ import {
   useImpression,
   useClickTracking,
 } from "@/lib/use-firestore";
-import { Wallpaper, getCategoryById } from "../lib/wallpapers";
+import type { WallpaperMetadata } from "@/lib/firestore-types";
 
-interface WallpaperCardProps {
-  wallpaper?: Wallpaper;
-  id?: string;
-  title?: string;
-  imageSrc?: string;
-  author?: string;
-  likes?: number;
-  downloads?: number;
-  category?: string;
+interface FirestoreWallpaperCardProps {
+  wallpaper: {
+    id: string;
+    title: string;
+    filename: string;
+    slug: string;
+    categoryId: string;
+    tags: string[];
+    resolution?: string;
+    uploaderId?: string;
+    createdAt?: Date;
+  };
   position?: number;
   source?: "grid" | "featured" | "trending" | "search" | "category" | "related";
   priority?: boolean;
@@ -32,70 +35,45 @@ interface WallpaperCardProps {
 const formatNumber = (num: number): string => {
   if (num >= 1000000) return Math.floor(num / 1000000) + "M";
   if (num >= 1000) return Math.floor(num / 1000) + "K";
-  return num.toString();
+  return num.toLocaleString();
 };
 
-const WallpaperCard = ({
+export const FirestoreWallpaperCard = ({
   wallpaper,
-  id,
-  title,
-  imageSrc,
-  author,
-  likes,
-  downloads,
-  category: categoryProp,
   position = 0,
   source = "grid",
   priority = false,
   className = "",
-}: WallpaperCardProps) => {
+}: FirestoreWallpaperCardProps) => {
   const { user } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
 
-  // Safe wallpaper object
-  const wallpaperData: Wallpaper = wallpaper || {
-    id: id || "",
-    title: title || "",
-    filename: imageSrc?.split("/").pop() || "",
-    slug: (title || "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    categoryId: (categoryProp || "").toLowerCase(),
-    tags: [],
-    views: likes || 0,
-    downloads: downloads || 0,
-    likes: likes || 0,
-    featured: true,
-    trending: true,
-    uploadDate: new Date().toISOString().split("T")[0],
-    resolution: "3840x2160"
-  };
-
-  const category = getCategoryById(wallpaperData.categoryId);
-
   // Track impression when card is rendered
-  useImpression(wallpaperData.id, { source, position });
+  useImpression(wallpaper.id, { source, position });
 
   // Realtime stats for this wallpaper
-  const stats = useRealtimeWallpaperStats(wallpaperData.id);
+  const stats = useRealtimeWallpaperStats(wallpaper.id);
 
   // Click tracking
-  const { trackClick } = useClickTracking(wallpaperData.id, {
-    source: source === "trending" || source === "category" ? "grid" : source
-  });
+  const clickSource = source === "trending" || source === "category"
+    ? "grid"
+    : source as "grid" | "featured" | "search" | "related" | "direct";
+  const { trackClick } = useClickTracking(wallpaper.id, { source: clickSource });
 
   // Like functionality
   const { isLiked, loading: likeLoading, toggle: toggleLike } = useLike(
-    wallpaperData.id,
+    wallpaper.id,
     {
-      slug: wallpaperData.slug,
-      title: wallpaperData.title,
-      thumbnail: `/wallpapers/${wallpaperData.filename}`,
+      slug: wallpaper.slug,
+      title: wallpaper.title,
+      thumbnail: `/wallpapers/${wallpaper.filename}`,
     }
   );
 
   // Download functionality
-  const { download: recordAndDownload } = useDownload(wallpaperData.id, wallpaperData.slug);
+  const { download: recordAndDownload } = useDownload(wallpaper.id, wallpaper.slug);
 
   const handleCardClick = useCallback(() => {
     trackClick();
@@ -116,39 +94,33 @@ const WallpaperCard = ({
   const handleDownloadClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) {
-      alert("Please sign in to track downloads");
-      return;
-    }
-    await recordAndDownload(wallpaperData.resolution || "3840x2160", "original");
+    await recordAndDownload(wallpaper.resolution || "3840x2160", "original");
 
     // Direct download
     const link = document.createElement("a");
-    link.href = `/wallpapers/${wallpaperData.filename}`;
-    link.download = `${wallpaperData.slug || wallpaperData.title}.jpg`;
+    link.href = `/wallpapers/${wallpaper.filename}`;
+    link.download = `${wallpaper.slug || wallpaper.title}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const showDetailedHover = source !== "grid";
-
   return (
     <div
-      className={`wallpaper-card-v2 ${isHovered ? "hovered" : ""} ${showDetailedHover ? "detailed-hover" : ""} ${className}`}
+      className={`wallpaper-card-v2 ${isHovered ? "hovered" : ""} ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <Link
-        href={`/wallpaper/${wallpaperData.slug}`}
+        href={`/wallpaper/${wallpaper.slug}`}
         className="wallpaper-card-v2-link"
         onClick={handleCardClick}
       >
         {/* Image Container */}
         <div className="wallpaper-card-v2-image">
           <Image
-            src={`/wallpapers/${wallpaperData.filename}`}
-            alt={wallpaperData.title}
+            src={`/wallpapers/${wallpaper.filename}`}
+            alt={wallpaper.title}
             fill
             className={`wallpaper-card-v2-img ${isLoading ? "loading" : "loaded"}`}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
@@ -162,12 +134,10 @@ const WallpaperCard = ({
 
         {/* Top Bar */}
         <div className={`wallpaper-card-v2-top ${isHovered ? "visible" : ""}`}>
-          {category && (
-            <span className="wallpaper-card-v2-category">
-              <Sparkles size={12} />
-              {category.name}
-            </span>
-          )}
+          <span className="wallpaper-card-v2-category">
+            <Sparkles size={12} />
+            {wallpaper.categoryId}
+          </span>
 
           {/* Action Buttons */}
           <div className="wallpaper-card-v2-actions">
@@ -185,40 +155,11 @@ const WallpaperCard = ({
         {/* Bottom Bar */}
         <div className={`wallpaper-card-v2-bottom ${isHovered ? "visible" : ""}`}>
           <div className="wallpaper-card-v2-info">
-            <h3 className="wallpaper-card-v2-title">{wallpaperData.title}</h3>
-            {wallpaperData.resolution && (
-              <span className="wallpaper-card-v2-resolution">{wallpaperData.resolution}</span>
-            )}
-            {/* Enhanced hover info - tags */}
-            {showDetailedHover && wallpaperData.tags && wallpaperData.tags.length > 0 && (
-              <div className="wallpaper-card-v2-tags">
-                {wallpaperData.tags.slice(0, 3).map((tag, idx) => (
-                  <span key={`${tag}-${idx}`} className="wallpaper-card-v2-tag">{tag}</span>
-                ))}
-                {wallpaperData.tags.length > 3 && (
-                  <span className="wallpaper-card-v2-tag-more">+{wallpaperData.tags.length - 3}</span>
-                )}
-              </div>
+            <h3 className="wallpaper-card-v2-title">{wallpaper.title}</h3>
+            {wallpaper.resolution && (
+              <span className="wallpaper-card-v2-resolution">{wallpaper.resolution}</span>
             )}
           </div>
-
-          {/* Enhanced hover info - detailed stats */}
-          {showDetailedHover && (
-            <div className="wallpaper-card-v2-detailed-stats">
-              <div className="wallpaper-card-v2-stat-item">
-                <Eye size={14} />
-                <span>{formatNumber(stats?.views || wallpaperData.views || 0)}</span>
-              </div>
-              <div className="wallpaper-card-v2-stat-item">
-                <Download size={14} />
-                <span>{formatNumber(stats?.downloads || wallpaperData.downloads || 0)}</span>
-              </div>
-              <div className="wallpaper-card-v2-stat-item">
-                <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
-                <span>{formatNumber(stats?.likes || 0)}</span>
-              </div>
-            </div>
-          )}
 
           <button
             onClick={handleDownloadClick}
@@ -234,11 +175,11 @@ const WallpaperCard = ({
       <div className={`wallpaper-card-v2-stats ${isHovered ? "hidden" : ""}`}>
         <div className="wallpaper-card-v2-stat">
           <Eye size={14} />
-          <span>{formatNumber(stats?.views || wallpaperData.views || 0)}</span>
+          <span>{formatNumber(stats?.views || 0)}</span>
         </div>
         <div className="wallpaper-card-v2-stat">
           <Download size={14} />
-          <span>{formatNumber(stats?.downloads || wallpaperData.downloads || 0)}</span>
+          <span>{formatNumber(stats?.downloads || 0)}</span>
         </div>
         <div className="wallpaper-card-v2-stat">
           <Heart size={14} fill={isLiked ? "var(--heart)" : "none"} className={isLiked ? "heart-filled" : ""} />
@@ -249,4 +190,4 @@ const WallpaperCard = ({
   );
 };
 
-export default WallpaperCard;
+export default FirestoreWallpaperCard;

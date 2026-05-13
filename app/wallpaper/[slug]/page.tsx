@@ -8,6 +8,8 @@ import Footer from "../../components/Footer";
 import WallpaperGrid from "../../components/WallpaperGrid";
 import WallpaperActions from "./WallpaperActions";
 import WallpaperImageLoading from "./WallpaperImageLoading";
+import WallpaperStats from "./WallpaperStats";
+import WallpaperInfoCard from "./WallpaperInfoCard";
 import { 
   getWallpaperBySlug, 
   getCategoryById, 
@@ -15,7 +17,7 @@ import {
   getTagById,
   getTrendingWallpapers,
 } from "../../lib/wallpapers";
-import { Info, Tag, Eye, Clock, Download } from "lucide-react";
+import { Info, Tag, Eye, Clock, Download, Heart } from "lucide-react";
 
 // Helper function to ensure consistent number formatting
 const formatNumber = (num: number): string => {
@@ -127,23 +129,7 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
                 )}
                 
                 {/* Quick stats for mobile */}
-                <div className="wallpaper-stats-grid">
-                  <div className="wallpaper-stat-card">
-                    <Eye size={18} className="stat-icon" />
-                    <span className="stat-label">Views</span>
-                    <span className="stat-value">{formatNumber(wallpaper.views)}</span>
-                  </div>
-                  <div className="wallpaper-stat-card">
-                    <Download size={18} className="stat-icon" />
-                    <span className="stat-label">Downloads</span>
-                    <span className="stat-value">{formatNumber(wallpaper.downloads)}</span>
-                  </div>
-                  <div className="wallpaper-stat-card">
-                    <Clock size={18} className="stat-icon" />
-                    <span className="stat-label">Uploaded</span>
-                    <span className="stat-value">{new Date(wallpaper.uploadDate).toLocaleDateString()}</span>
-                  </div>
-                </div>
+                <WallpaperStats wallpaper={wallpaper} />
               </div>
             </div>
             
@@ -156,58 +142,17 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
               )}
               
               {/* Stats */}
-              <div className="wallpaper-stats-grid">
-                <div className="wallpaper-stat-card animate-fade-in" style={{animationDelay: "0.1s"}}>
-                  <Eye size={18} className="stat-icon" />
-                  <span className="stat-label">Views</span>
-                  <span className="stat-value">{formatNumber(wallpaper.views)}</span>
-                </div>
-                <div className="wallpaper-stat-card animate-fade-in" style={{animationDelay: "0.2s"}}>
-                  <Download size={18} className="stat-icon" />
-                  <span className="stat-label">Downloads</span>
-                  <span className="stat-value">{formatNumber(wallpaper.downloads)}</span>
-                </div>
-                <div className="wallpaper-stat-card animate-fade-in" style={{animationDelay: "0.3s"}}>
-                  <Clock size={18} className="stat-icon" />
-                  <span className="stat-label">Uploaded</span>
-                  <span className="stat-value">{new Date(wallpaper.uploadDate).toLocaleDateString()}</span>
-                </div>
-              </div>
+              <WallpaperStats wallpaper={wallpaper} />
               
               {/* Details */}
-              <div className="wallpaper-info-card animate-fade-in" style={{animationDelay: "0.4s"}}>
-                <div className="info-card-header">
-                  <Info size={18} className="info-icon" />
-                  <h3 className="info-title">Details</h3>
-                </div>
-                <div className="info-grid">
-                  <div className="info-label">Category:</div>
-                  <div className="info-value">
-                    <Link href={`/categories/${category?.id || ''}`} className="info-link">
-                      {category?.name || 'Uncategorized'}
-                    </Link>
-                  </div>
-                  
-                  {wallpaper.resolution && (
-                    <>
-                      <div className="info-label">Resolution:</div>
-                      <div className="info-value">{wallpaper.resolution}</div>
-                    </>
-                  )}
-                  
-                  <div className="info-label">Uploaded:</div>
-                  <div className="info-value">{new Date(wallpaper.uploadDate).toLocaleDateString()}</div>
-                  
-                  <div className="info-label">Downloads:</div>
-                  <div className="info-value">{formatNumber(wallpaper.downloads)}</div>
-                  
-                  <div className="info-label">Views:</div>
-                  <div className="info-value">{formatNumber(wallpaper.views)}</div>
-                  
-                  <div className="info-label">ID:</div>
-                  <div className="info-value">{wallpaper.id}</div>
-                </div>
-              </div>
+              <WallpaperInfoCard
+                wallpaperId={wallpaper.id}
+                categoryId={wallpaper.categoryId}
+                resolution={wallpaper.resolution}
+                uploadDate={wallpaper.uploadDate}
+                staticViews={wallpaper.views}
+                staticDownloads={wallpaper.downloads}
+              />
               
               {/* Tags */}
               <div className="wallpaper-tags-container animate-fade-in" style={{animationDelay: "0.5s"}}>

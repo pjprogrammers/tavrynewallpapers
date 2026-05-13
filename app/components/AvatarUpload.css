@@ -1,0 +1,558 @@
+/* =========================================================
+   📱 AVATAR UPLOAD - GITHUB-STYLE DESIGN
+   Clean, minimal, professional
+   ========================================================= */
+
+:root {
+  --gh-bg: #0d1117;
+  --gh-bg-secondary: #161b22;
+  --gh-bg-tertiary: #21262d;
+  --gh-border: #30363d;
+  --gh-border-muted: #21262d;
+  --gh-text: #f0f6fc;
+  --gh-text-secondary: #8b949e;
+  --gh-text-muted: #6e7681;
+  --gh-primary: #58a6ff;
+  --gh-primary-bg: rgba(56, 139, 253, 0.15);
+  --gh-success: #3fb950;
+  --gh-danger: #f85149;
+  --gh-danger-bg: rgba(248, 81, 73, 0.15);
+  --gh-radius: 6px;
+  --gh-radius-lg: 12px;
+}
+
+/* =========================================================
+   🔘 TRIGGER BUTTON
+   ========================================================= */
+
+.avatar-upload-wrapper {
+  position: relative;
+  display: inline-flex;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.avatar-upload-small { width: 40px; height: 40px; }
+.avatar-upload-medium { width: 96px; height: 96px; }
+.avatar-upload-large { width: 150px; height: 150px; }
+
+.avatar-upload-trigger {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85));
+  border: 1px solid var(--gh-border);
+  color: var(--gh-text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 1;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.avatar-upload-trigger:hover {
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.2), rgba(88, 166, 255, 0.1));
+  border-color: var(--gh-primary);
+  color: var(--gh-primary);
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+}
+
+.avatar-upload-trigger:active {
+  transform: scale(0.98);
+}
+
+.avatar-upload-trigger span {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* =========================================================
+   🌓 MODAL OVERLAY
+   ========================================================= */
+
+.gh-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  padding: 1rem;
+}
+
+/* =========================================================
+   📦 MODAL - GitHub Style
+   ========================================================= */
+
+.gh-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--gh-bg-secondary);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius-lg);
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+/* Header */
+.gh-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gh-border);
+}
+
+.gh-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gh-text);
+  margin: 0;
+}
+
+.gh-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: var(--gh-radius);
+  color: var(--gh-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gh-modal-close:hover {
+  background: var(--gh-bg-tertiary);
+  color: var(--gh-text);
+}
+
+/* =========================================================
+   🔹 TABS - GitHub Style
+   ========================================================= */
+
+.gh-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--gh-border);
+}
+
+.gh-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--gh-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gh-tab:hover {
+  color: var(--gh-text-secondary);
+  background: var(--gh-bg);
+}
+
+.gh-tab.active {
+  color: var(--gh-text);
+  border-bottom-color: var(--gh-primary);
+}
+
+.gh-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--gh-bg);
+  border-radius: var(--gh-radius);
+  color: var(--gh-text-muted);
+}
+
+.gh-tab.active .gh-tab-icon {
+  background: var(--gh-primary-bg);
+  color: var(--gh-primary);
+}
+
+.gh-tab-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.gh-tab-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.gh-tab-desc {
+  font-size: 12px;
+  color: var(--gh-text-muted);
+}
+
+/* =========================================================
+   📄 MODAL BODY
+   ========================================================= */
+
+.gh-modal-body {
+  padding: 20px;
+}
+
+.gh-tab-pane {
+  min-height: 200px;
+}
+
+/* =========================================================
+   ⚠️ ALERTS
+   ========================================================= */
+
+.gh-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--gh-radius);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.gh-alert-error {
+  background: var(--gh-danger-bg);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ffa198;
+}
+
+.gh-alert-error svg {
+  color: var(--gh-danger);
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   📤 DROPZONE
+   ========================================================= */
+
+.gh-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  padding: 24px;
+  background: var(--gh-bg);
+  border: 2px dashed var(--gh-border);
+  border-radius: var(--gh-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gh-dropzone:hover {
+  border-color: var(--gh-text-muted);
+  background: var(--gh-bg-tertiary);
+}
+
+.gh-dropzone.dragging {
+  border-color: var(--gh-primary);
+  background: var(--gh-primary-bg);
+  border-style: solid;
+}
+
+.gh-dropzone.uploading {
+  pointer-events: none;
+}
+
+.gh-hidden-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.gh-dropzone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.gh-dropzone-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: var(--gh-bg-tertiary);
+  border-radius: 50%;
+  color: var(--gh-text-muted);
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.gh-dropzone:hover .gh-dropzone-icon {
+  background: var(--gh-primary-bg);
+  color: var(--gh-primary);
+}
+
+.gh-dropzone-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gh-text);
+  margin: 0;
+}
+
+.gh-dropzone-subtitle {
+  font-size: 13px;
+  color: var(--gh-text-muted);
+  margin: 0;
+}
+
+.gh-dropzone-subtitle span {
+  color: var(--gh-primary);
+}
+
+.gh-dropzone-hint {
+  font-size: 12px;
+  color: var(--gh-text-muted);
+  margin-top: 8px;
+}
+
+/* Progress */
+.gh-dropzone-uploading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.gh-progress {
+  width: 100%;
+  max-width: 200px;
+  height: 6px;
+  background: var(--gh-bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gh-progress-bar {
+  height: 100%;
+  background: var(--gh-primary);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.gh-progress-text {
+  font-size: 13px;
+  color: var(--gh-text-secondary);
+}
+
+/* =========================================================
+   🎨 PRESETS - GitHub Style
+   ========================================================= */
+
+.gh-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gh-preset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  background: var(--gh-bg);
+  border: 2px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  overflow: hidden;
+}
+
+.gh-preset-btn:hover {
+  border-color: var(--gh-primary);
+  transform: scale(1.05);
+  box-shadow: 0 0 0 3px var(--gh-primary-bg);
+}
+
+.gh-preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gh-preset-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gh-presets-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--gh-text-muted);
+  margin: 0;
+}
+
+/* =========================================================
+   🔗 URL INPUT
+   ========================================================= */
+
+.gh-url-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gh-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gh-text-secondary);
+}
+
+.gh-input-wrapper {
+  position: relative;
+}
+
+.gh-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--gh-bg);
+  border: 1px solid var(--gh-border);
+  border-radius: var(--gh-radius);
+  color: var(--gh-text);
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.gh-input:focus {
+  outline: none;
+  border-color: var(--gh-primary);
+  box-shadow: 0 0 0 3px var(--gh-primary-bg);
+}
+
+.gh-input::placeholder {
+  color: var(--gh-text-muted);
+}
+
+.gh-input:disabled {
+  opacity: 0.5;
+}
+
+/* URL Preview */
+.gh-url-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--gh-bg);
+  border-radius: var(--gh-radius);
+}
+
+.gh-url-preview-label {
+  font-size: 12px;
+  color: var(--gh-text-muted);
+}
+
+.gh-url-preview-img {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--gh-radius);
+  overflow: hidden;
+  border: 1px solid var(--gh-border);
+  background: var(--gh-bg-tertiary);
+}
+
+.gh-url-preview-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Button */
+.gh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--gh-radius);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gh-btn-primary {
+  background: var(--gh-primary);
+  color: #ffffff;
+}
+
+.gh-btn-primary:hover:not(:disabled) {
+  background: #4393e6;
+}
+
+.gh-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gh-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* =========================================================
+   📱 RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 480px) {
+  .gh-modal {
+    max-width: 100%;
+  }
+
+  .gh-tabs {
+    flex-wrap: wrap;
+  }
+
+  .gh-tab {
+    flex: none;
+    width: 100%;
+    padding: 10px 12px;
+  }
+
+  .gh-tab-content {
+    display: none;
+  }
+
+  .gh-tab-icon {
+    margin: 0 auto;
+  }
+
+  .gh-presets {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .gh-modal-body {
+    padding: 16px;
+  }
+}

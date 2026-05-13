@@ -7,16 +7,18 @@ import { useEffect, useState } from "react";
 interface WallpaperGridProps {
   wallpapers: Wallpaper[];
   className?: string;
+  source?: "grid" | "featured" | "trending" | "search" | "category" | "related";
 }
 
-const WallpaperGrid = ({ wallpapers, className = "" }: WallpaperGridProps) => {
+const WallpaperGrid = ({ wallpapers, className = "", source = "grid" }: WallpaperGridProps) => {
   return (
     <div className={`wallpaper-grid ${className}`}>
       {wallpapers.map((wallpaper, index) => (
-        <WallpaperCard 
-          key={wallpaper.id} 
+        <WallpaperCard
+          key={wallpaper.id}
           wallpaper={wallpaper}
           priority={index < 4}
+          source={source}
         />
       ))}
       

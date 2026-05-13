@@ -1,6 +1,7 @@
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-import WallpaperGrid from "./components/WallpaperGrid";
+import WallpaperGridWithStats from "./components/WallpaperGridWithStats";
+import FeaturedGridWithStats from "./components/FeaturedGridWithStats";
 import SearchBar from "./components/SearchBar";
 import CategoryList from "./components/CategoryList";
 import { categories, getAllWallpapers, getTrendingWallpapers, getFeaturedWallpapers } from "./lib/wallpapers";
@@ -71,45 +72,7 @@ export default function Home() {
               <ChevronRight size={16} />
             </Link>
           </div>
-          <div className="featured-grid">
-            {featuredWallpapers.map((wallpaper, index) => (
-              <Link 
-                key={wallpaper.id}
-                href={`/wallpaper/${wallpaper.slug}`}
-                className={`featured-item featured-item-${index} animate-fade-in`}
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="featured-image-container">
-                  <Image
-                    src={`/wallpapers/${wallpaper.filename}`}
-                    alt={wallpaper.title}
-                    fill
-                    className="featured-image"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    priority={index < 2}
-                  />
-                  <div className="featured-overlay">
-                    <div className="featured-content">
-                      <h3 className="featured-title">{wallpaper.title}</h3>
-                      <div className="featured-meta">
-                        <span className="featured-resolution">{wallpaper.resolution}</span>
-                        <div className="featured-stats">
-                          <span className="featured-stat">
-                            <Download size={14} />
-                            {wallpaper.downloads.toLocaleString()}
-                          </span>
-                          <span className="featured-stat">
-                            <Heart size={14} />
-                            {Math.floor(wallpaper.downloads * 0.7).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <FeaturedGridWithStats wallpapers={featuredWallpapers} />
         </div>
       </section>
       
@@ -159,7 +122,7 @@ export default function Home() {
               <ChevronRight size={16} />
             </Link>
           </div>
-          <WallpaperGrid wallpapers={allWallpapers} />
+          <WallpaperGridWithStats wallpapers={allWallpapers} />
         </div>
       </section>
       
@@ -180,7 +143,7 @@ export default function Home() {
               <ChevronRight size={16} />
             </Link>
           </div>
-          <WallpaperGrid wallpapers={trendingWallpapers} />
+          <WallpaperGridWithStats wallpapers={trendingWallpapers} />
         </div>
       </section>
       

@@ -1,78 +1,178 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import {
+  Camera,
+  Upload,
+  Link2,
+  ImageIcon,
+  X,
+  Loader2,
+  Check,
+} from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useUserProfile, useUserFavorites, useUserDownloads } from "@/lib/use-firestore";
 import {
   User,
   Settings,
-  Activity,
   Edit3,
   Save,
-  X,
-  Loader2,
   Mail,
   Calendar,
-  Shield,
   LogOut,
-  Camera,
+  Heart,
+  Download,
+  Star,
+  ChevronRight,
+  Sparkles,
+  Grid3X3,
+  Palette,
+  Bell,
+  Shield,
+  Zap,
 } from "lucide-react";
-
-import { signOut as firebaseSignOut } from "@/lib/auth";
+import { signOut as firebaseSignOut, updateAuthProfile, updateUserFirestoreProfile } from "@/lib/auth";
 import "./profile.css";
 
-/* =========================================================
- * TYPES
- * ========================================================= */
-type TabKey = "overview" | "activity" | "settings";
+import Header from "@/app/components/Header";
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
+import * as THREE from "three";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { ParticleField } from "./ParticleField";
 
-interface TabConfig {
-  key: TabKey;
-  label: string;
-  icon: ReactNode;
-}
+type TabKey = "overview" | "favorites" | "downloads" | "settings";
 
 interface ProfileFormData {
   displayName: string;
+  photoURL: string;
   bio: string;
 }
 
-interface StatItem {
-  label: string;
-  value: string | number;
-}
-
-/* =========================================================
- * CONSTANTS
- * ========================================================= */
-const TABS: TabConfig[] = [
-  { key: "overview", label: "Overview", icon: <User size={16} /> },
-  { key: "activity", label: "Activity", icon: <Activity size={16} /> },
-  { key: "settings", label: "Settings", icon: <Settings size={16} /> },
+const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: "overview", label: "Overview", icon: <Sparkles size={18} /> },
+  { key: "favorites", label: "Favorites", icon: <Heart size={18} /> },
+  { key: "downloads", label: "Downloads", icon: <Download size={18} /> },
+  { key: "settings", label: "Settings", icon: <Settings size={18} /> },
 ];
 
-const DEFAULT_BIO =
-  "Passionate creator exploring digital aesthetics, UI design, and wallpaper art.";
-
+const DEFAULT_BIO = "Passionate wallpaper enthusiast exploring digital aesthetics.";
 const MAX_NAME_LENGTH = 50;
-const MAX_BIO_LENGTH = 200;
+const MAX_BIO_LENGTH = 160;
 
-/* =========================================================
- * PROFILE PAGE
- * ========================================================= */
+function AnimatedBackground() {
+  return (
+    <div className="animated-background">
+      <Canvas camera={{ position: [0, 0, 1] }}>
+        <ParticleField />
+      </Canvas>
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-black/95 to-black" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-900/10 via-transparent to-transparent" />
+    </div>
+  );
+}
+
+function GlowingOrb() {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = state.clock.elapsedTime * 0.1;
+      meshRef.current.rotation.y = state.clock.elapsedTime * 0.15;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef}>
+      <icosahedronGeometry args={[1, 1]} />
+      <meshBasicMaterial color="#22c55e" wireframe transparent opacity={0.3} />
+    </mesh>
+  );
+}
+
+function FloatingParticles() {
+  const particlesRef = useRef<THREE.Points>(null);
+  const count = 200;
+
+  const geometry = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 20;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 10;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    return geo;
+  }, []);
+
+  useFrame((state) => {
+    if (particlesRef.current) {
+      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.02;
+    }
+  });
+
+  return (
+    <points ref={particlesRef} geometry={geometry}>
+      <pointsMaterial size={0.03} color="#22c55e" transparent opacity={0.6} />
+    </points>
+  );
+}
+
+function ProfileOrb() {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5) * 0.3;
+      meshRef.current.rotation.y = state.clock.elapsedTime * 0.3;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={[3, 2, -2]}>
+      <octahedronGeometry args={[0.8]} />
+      <meshBasicMaterial color="#22c55e" wireframe transparent opacity={0.4} />
+    </mesh>
+  );
+}
+
+function Profile3DBackground() {
+  return (
+    <Canvas camera={{ position: [0, 0, 5] }}>
+      <FloatingParticles />
+      <ProfileOrb />
+    </Canvas>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { profile } = useUserProfile();
+  const { favorites } = useUserFavorites();
+  const { downloads } = useUserDownloads();
 
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: containerRef });
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
+
+  // Avatar modal state
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarTab, setAvatarTab] = useState<"upload" | "preset" | "url">("upload");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
 
   const [formData, setFormData] = useState<ProfileFormData>({
     displayName: "",
+    photoURL: "",
     bio: "",
   });
 
@@ -80,16 +180,107 @@ export default function ProfilePage() {
     if (user) {
       setFormData({
         displayName: user.displayName ?? "",
-        bio: (user as any).bio ?? DEFAULT_BIO,
+        photoURL: user.photoURL ?? "",
+        bio: (profile as any)?.bio ?? DEFAULT_BIO,
       });
+      setAvatarUrl(user.photoURL ?? "");
     }
-  }, [user]);
+  }, [user, profile]);
 
-  const avatarUrl = useMemo(() => {
+  // ---------- Cloudinary upload (uses your existing env vars) ----------
+  const handleAvatarUpload = async (newPhotoUrl: string) => {
+    if (!user) return;
+    try {
+      setAvatarUrl(newPhotoUrl);
+      // Update both Auth and Firestore
+      await updateAuthProfile(user, { photoURL: newPhotoUrl });
+      await updateUserFirestoreProfile(user.uid, { photoURL: newPhotoUrl });
+      router.refresh();
+    } catch (err) {
+      console.error("[Profile] Failed to update avatar:", err);
+      setError("Failed to save avatar. Please try again.");
+    }
+  };
+
+  const uploadToCloudinary = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+      { method: "POST", body: formData }
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || "Upload failed");
+    return data.secure_url;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file (PNG, JPG, GIF).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      await handleAvatarUpload(url);
+      setShowAvatarModal(false);
+    } catch (err: any) {
+      console.error("Upload failed:", err);
+      setError(err.message || "Upload failed. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handlePresetSelect = async (url: string) => {
+    setUploadingAvatar(true);
+    try {
+      await handleAvatarUpload(url);
+      setShowAvatarModal(false);
+    } catch (err) {
+      setError("Failed to apply preset avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleUrlSubmit = async () => {
+    if (!urlInput.trim()) {
+      setError("Please enter a valid image URL.");
+      return;
+    }
+    try {
+      new URL(urlInput);
+    } catch {
+      setError("Invalid URL format.");
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      await handleAvatarUpload(urlInput);
+      setShowAvatarModal(false);
+    } catch (err) {
+      setError("Failed to load image from URL.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+  // ----------------------------------------------------------------
+
+  const displayAvatarUrl = useMemo(() => {
+    if (avatarUrl) return avatarUrl;
     if (user?.photoURL) return user.photoURL;
     const seed = encodeURIComponent(user?.displayName || user?.email || "User");
     return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
-  }, [user?.photoURL, user?.displayName, user?.email]);
+  }, [avatarUrl, user?.photoURL, user?.displayName, user?.email]);
 
   const memberSince = useMemo(() => {
     const created = (user as any)?.metadata?.creationTime;
@@ -98,7 +289,6 @@ export default function ProfilePage() {
       return new Date(created).toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
-        day: "numeric",
       });
     } catch {
       return "Recently joined";
@@ -116,12 +306,13 @@ export default function ProfilePage() {
     if (user) {
       setFormData({
         displayName: user.displayName ?? "",
-        bio: (user as any).bio ?? DEFAULT_BIO,
+        photoURL: user.photoURL ?? "",
+        bio: (profile as any)?.bio ?? DEFAULT_BIO,
       });
     }
     setError(null);
     setIsEditing(false);
-  }, [user]);
+  }, [user, profile]);
 
   const handleSave = useCallback(async () => {
     const name = formData.displayName.trim();
@@ -137,8 +328,26 @@ export default function ProfilePage() {
     setError(null);
     setSaving(true);
     try {
-      // TODO: real Firebase update
-      await new Promise((res) => setTimeout(res, 800));
+      const result = await updateAuthProfile(user!, {
+        displayName: name,
+        photoURL: formData.photoURL.trim() || undefined,
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      await updateUserFirestoreProfile(user!.uid, {
+        displayName: name,
+        photoURL: formData.photoURL.trim() || undefined,
+      });
+
+      const { doc, setDoc } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase");
+      const { COLLECTIONS } = await import("@/lib/firestore");
+      const userRef = doc(db, COLLECTIONS.USERS, user!.uid);
+      await setDoc(userRef, { bio: formData.bio.trim() }, { merge: true });
+
       setIsEditing(false);
       router.refresh();
     } catch (err) {
@@ -147,7 +356,7 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  }, [formData, router]);
+  }, [formData, router, user]);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -158,12 +367,24 @@ export default function ProfilePage() {
     }
   }, [router]);
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="profile-page">
+        <AnimatedBackground />
         <div className="profile-loading">
-          <Loader2 className="animate-spin" size={24} />
-          <span>Loading profile...</span>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          >
+            <Loader2 size={48} />
+          </motion.div>
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            Loading profile...
+          </motion.span>
         </div>
       </div>
     );
@@ -172,230 +393,702 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="profile-page">
-        <div className="profile-unauthenticated">
-          <Shield size={48} />
-          <h1>You are not signed in</h1>
-          <p>Please log in to view and manage your profile.</p>
+        <AnimatedBackground />
+        <motion.div
+          className="profile-unauthenticated"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="unauthenticated-glow" />
+          <motion.div
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            <User size={64} className="unauthenticated-icon" />
+          </motion.div>
+          <h1>Welcome Back</h1>
+          <p>Sign in to access your profile and manage your wallpapers</p>
           <Link href="/login" className="profile-login-link">
-            Go to Login
+            <motion.span
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Sign in
+            </motion.span>
           </Link>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <main className="profile-page">
-      {/* Background grid and glows */}
-      <div className="profile-grid" />
-      <div className="profile-glow profile-glow-one" />
-      <div className="profile-glow profile-glow-two" />
+    <main className="profile-page" ref={containerRef}>
+      <AnimatedBackground />
+      <Header />
 
-      <div className="profile-content">
-        {/* ============ PROFILE HEADER CARD (3D) ============ */}
-        <div className="profile-3d-card">
-          <div className="profile-card-shine" />
-          <div className="profile-card-body">
-            <div className="profile-avatar-wrapper">
+      <motion.div
+        className="profile-container"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
+        {/* Hero Section */}
+        <motion.section
+          className="profile-hero"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
+          <div className="hero-glow" />
+
+          <motion.div
+            className="profile-avatar-section"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <div className="avatar-orb-container">
+              <div className="avatar-orb avatar-orb-1" />
+              <div className="avatar-orb avatar-orb-2" />
+              <div className="avatar-ring" />
+              <div className="avatar-glow" />
               <Image
-                src={avatarUrl}
+                src={displayAvatarUrl}
                 alt={`${user.displayName || "User"} avatar`}
-                fill
-                sizes="96px"
+                width={200}
+                height={200}
                 className="profile-avatar"
                 unoptimized
               />
-              <div className="profile-avatar-overlay">
-                <Camera size={18} />
-              </div>
+              <button
+                onClick={() => setShowAvatarModal(true)}
+                className="avatar-edit-btn"
+                aria-label="Change avatar"
+              >
+                <Camera size={24} />
+              </button>
             </div>
+          </motion.div>
 
-            <div className="profile-info">
+          <div className="profile-info-section">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
               {isEditing ? (
-                <div className="profile-name-edit">
-                  <label htmlFor="displayName" className="sr-only">Display Name</label>
-                  <input
-                    id="displayName"
+                <motion.div
+                  className="profile-edit-form"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <motion.input
                     type="text"
                     value={formData.displayName}
                     onChange={(e) => handleFieldChange("displayName", e.target.value)}
                     maxLength={MAX_NAME_LENGTH}
                     placeholder="Display name"
-                    className="profile-input"
+                    className="profile-input-name"
+                    whileFocus={{ scale: 1.02 }}
                   />
-                  <span className="profile-char-count">
-                    {formData.displayName.length}/{MAX_NAME_LENGTH}
-                  </span>
-                </div>
+                  <motion.textarea
+                    value={formData.bio}
+                    onChange={(e) => handleFieldChange("bio", e.target.value)}
+                    maxLength={MAX_BIO_LENGTH}
+                    placeholder="Tell us about yourself"
+                    className="profile-input-bio"
+                    rows={2}
+                    whileFocus={{ scale: 1.02 }}
+                  />
+                  <div className="profile-edit-meta">
+                    <span className="profile-char-count">
+                      {formData.displayName.length}/{MAX_NAME_LENGTH}
+                    </span>
+                    <span className="profile-bio-count">
+                      {formData.bio.length}/{MAX_BIO_LENGTH}
+                    </span>
+                  </div>
+                </motion.div>
               ) : (
-                <h1 className="profile-display-name">
-                  {user.displayName || "Anonymous User"}
-                </h1>
+                <>
+                  <h1 className="profile-name">
+                    <motion.span
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 }}
+                    >
+                      {user.displayName || "Anonymous User"}
+                    </motion.span>
+                  </h1>
+                  <motion.p
+                    className="profile-bio"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                  >
+                    {formData.bio || DEFAULT_BIO}
+                  </motion.p>
+                </>
               )}
 
-              <p className="profile-email">
-                <Mail size={14} />
-                {user.email}
-              </p>
-              <p className="profile-member-since">
-                <Calendar size={14} />
-                Member since {memberSince}
-              </p>
-            </div>
+              <div className="profile-meta">
+                <motion.span
+                  className="profile-meta-item"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                >
+                  <Mail size={14} />
+                  {user.email}
+                </motion.span>
+                <motion.span
+                  className="profile-meta-item"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.9 }}
+                >
+                  <Calendar size={14} />
+                  Joined {memberSince}
+                </motion.span>
+              </div>
+            </motion.div>
 
-            <div className="profile-edit-actions">
-              {!isEditing ? (
-                <button onClick={() => setIsEditing(true)} className="profile-edit-btn">
-                  <Edit3 size={16} /> Edit
-                </button>
-              ) : (
-                <div className="profile-save-group">
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="profile-save-btn"
-                  >
-                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                    {saving ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    disabled={saving}
-                    className="profile-cancel-btn"
-                    aria-label="Cancel editing"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
+            <motion.div
+              className="profile-stats-row"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1 }}
+            >
+              <motion.div
+                className="profile-stat-card"
+                whileHover={{ scale: 1.05, y: -5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Star size={20} className="stat-icon" />
+                <strong>{(profile as any)?.wallpaperCount || 0}</strong>
+                <span>wallpapers</span>
+              </motion.div>
+              <motion.div
+                className="profile-stat-card"
+                whileHover={{ scale: 1.05, y: -5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Heart size={20} className="stat-icon" />
+                <strong>{favorites.length}</strong>
+                <span>favorites</span>
+              </motion.div>
+              <motion.div
+                className="profile-stat-card"
+                whileHover={{ scale: 1.05, y: -5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Download size={20} className="stat-icon" />
+                <strong>{downloads.length}</strong>
+                <span>downloads</span>
+              </motion.div>
+            </motion.div>
           </div>
 
-          {error && (
-            <div role="alert" className="profile-error">
-              {error}
-            </div>
-          )}
-        </div>
+          <motion.div
+            className="profile-actions"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.1 }}
+          >
+            <AnimatePresence mode="wait">
+              {isEditing ? (
+                <motion.div
+                  key="editing"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="action-buttons"
+                >
+                  <motion.button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="profile-btn profile-btn-primary"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {saving ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    {saving ? "Saving" : "Save"}
+                  </motion.button>
+                  <motion.button
+                    onClick={handleCancel}
+                    disabled={saving}
+                    className="profile-btn profile-btn-secondary"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <X size={16} />
+                    Cancel
+                  </motion.button>
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="edit"
+                  onClick={() => setIsEditing(true)}
+                  className="profile-btn profile-btn-primary"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Edit3 size={16} />
+                  Edit profile
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
-        {/* ============ TABS ============ */}
-        <nav role="tablist" aria-label="Profile sections" className="profile-tabs">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              role="tab"
-              id={`tab-${tab.key}`}
-              aria-selected={activeTab === tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`profile-tab ${activeTab === tab.key ? "profile-tab-active" : ""}`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                className="profile-error"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.section>
 
-        {/* ============ TAB CONTENT ============ */}
-        <section
-          role="tabpanel"
-          aria-labelledby={`tab-${activeTab}`}
-          className="profile-tab-content"
+        {/* Tabs */}
+        <motion.nav
+          className="profile-tabs"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2 }}
         >
-          {activeTab === "overview" && (
-            <OverviewTab
-              bio={formData.bio}
-              isEditing={isEditing}
-              onBioChange={(v) => handleFieldChange("bio", v)}
-            />
-          )}
-          {activeTab === "activity" && <ActivityTab />}
-          {activeTab === "settings" && <SettingsTab onSignOut={handleSignOut} />}
-        </section>
+          {TABS.map((tab, index) => (
+            <motion.button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`profile-tab ${activeTab === tab.key ? "active" : ""}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.3 + index * 0.1 }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="tab-icon">{tab.icon}</span>
+              <span className="tab-label">{tab.label}</span>
+              {activeTab === tab.key && (
+                <motion.div
+                  className="tab-indicator"
+                  layoutId="activeTab"
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+              )}
+            </motion.button>
+          ))}
+        </motion.nav>
 
-        <footer className="profile-footer">
-          Secure Profile System • Powered by Firebase Auth
-        </footer>
-      </div>
+        {/* Tab Content */}
+        <section className="profile-content">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {activeTab === "overview" && <OverviewTab profile={profile} />}
+              {activeTab === "favorites" && <FavoritesTab favorites={favorites} />}
+              {activeTab === "downloads" && <DownloadsTab downloads={downloads} />}
+              {activeTab === "settings" && <SettingsTab onSignOut={handleSignOut} />}
+            </motion.div>
+          </AnimatePresence>
+        </section>
+      </motion.div>
+
+      {/* GitHub‑style Avatar Modal */}
+      <AnimatePresence>
+        {showAvatarModal && (
+          <motion.div
+            className="avatar-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowAvatarModal(false)}
+          >
+            <motion.div
+              className="avatar-modal"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="avatar-modal-header">
+                <h3>Change profile picture</h3>
+                <button className="avatar-modal-close" onClick={() => setShowAvatarModal(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="avatar-tabs">
+                <button
+                  className={`avatar-tab ${avatarTab === "upload" ? "active" : ""}`}
+                  onClick={() => setAvatarTab("upload")}
+                >
+                  <Upload size={16} /> Upload
+                </button>
+                <button
+                  className={`avatar-tab ${avatarTab === "preset" ? "active" : ""}`}
+                  onClick={() => setAvatarTab("preset")}
+                >
+                  <ImageIcon size={16} /> Preset
+                </button>
+                <button
+                  className={`avatar-tab ${avatarTab === "url" ? "active" : ""}`}
+                  onClick={() => setAvatarTab("url")}
+                >
+                  <Link2 size={16} /> Paste URL
+                </button>
+              </div>
+
+              <div className="avatar-modal-body">
+                {avatarTab === "upload" && (
+                  <div className="avatar-upload-area">
+                    <label className="avatar-file-label">
+                      <Upload size={32} />
+                      <span>Click to upload</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/gif"
+                        onChange={handleFileUpload}
+                        disabled={uploadingAvatar}
+                      />
+                    </label>
+                    <p className="avatar-hint">PNG, JPG, GIF up to 10MB</p>
+                  </div>
+                )}
+
+                {avatarTab === "preset" && (
+                  <div className="avatar-preset-grid">
+                    {[
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_30.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_17.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_5.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_7.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_35.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_4.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_29.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_26.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_31.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_32.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_22.png",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_16.png",
+                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Aiden",
+                      "https://api.dicebear.com/7.x/adventurer/svg?seed=Wallpaper",
+                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Oliver",
+                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Brian",
+                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Sara",
+                      "https://api.dicebear.com/9.x/adventurer/svg?seed=Maria",
+                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/3d_4.png",
+                      "https://api.dicebear.com/7.x/bottts/svg?seed=Cyber",
+                    ].map((url, idx) => (
+                      <button
+                        key={idx}
+                        className="avatar-preset-item"
+                        onClick={() => handlePresetSelect(url)}
+                        disabled={uploadingAvatar}
+                      >
+                        <Image src={url} width={80} height={80} alt="Preset avatar" unoptimized />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {avatarTab === "url" && (
+                  <div className="avatar-url-area">
+                    <input
+                      type="text"
+                      placeholder="https://example.com/avatar.jpg"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      className="avatar-url-input"
+                      disabled={uploadingAvatar}
+                    />
+                    <button
+                      onClick={handleUrlSubmit}
+                      disabled={uploadingAvatar || !urlInput.trim()}
+                      className="avatar-url-submit"
+                    >
+                      {uploadingAvatar ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                      Apply
+                    </button>
+                  </div>
+                )}
+
+                {uploadingAvatar && (
+                  <div className="avatar-uploading">
+                    <Loader2 size={24} className="animate-spin" />
+                    <span>Updating avatar...</span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
-/* =========================================================
- * SUB-COMPONENTS
- * ========================================================= */
-
-interface OverviewTabProps {
-  bio: string;
-  isEditing: boolean;
-  onBioChange: (value: string) => void;
-}
-
-function OverviewTab({ bio, isEditing, onBioChange }: OverviewTabProps) {
-  const stats: StatItem[] = [
-    { label: "Wallpapers", value: "128" },
-    { label: "Downloads", value: "2.4K" },
-    { label: "Likes", value: "320" },
-    { label: "Uploads", value: "45" },
-  ];
-
-  const recentActivity = [
-    "Uploaded Neon Cyberpunk Wallpaper",
-    "Downloaded Minimal Dark Pack",
-    "Liked Abstract Grid Design",
-  ];
+// ==================== TABS COMPONENTS (unchanged) ====================
+function OverviewTab({ profile }: { profile: any }) {
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: containerRef });
+  const lineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
   return (
-    <div className="overview-tab">
-      <div className="profile-stats">
-        {stats.map((s) => (
-          <div key={s.label} className="profile-stat-card">
-            <span className="stat-value">{s.value}</span>
-            <span className="stat-label">{s.label}</span>
-          </div>
-        ))}
-      </div>
+    <div className="tab-overview" ref={containerRef}>
+      <motion.div
+        className="overview-card"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="card-header">
+          <Sparkles size={24} className="card-icon" />
+          <h2>About You</h2>
+        </div>
+        <p className="card-content">
+          {profile?.bio || "Passionate wallpaper enthusiast exploring digital aesthetics. Always looking for the perfect backdrop for every screen."}
+        </p>
+        <div className="card-decoration" />
+      </motion.div>
 
-      <div className="profile-bio-section">
-        <h2>Bio</h2>
-        {isEditing ? (
-          <>
-            <textarea
-              value={bio}
-              onChange={(e) => onBioChange(e.target.value)}
-              maxLength={MAX_BIO_LENGTH}
-              rows={4}
-              className="profile-textarea"
-            />
-            <span className="profile-char-count">
-              {bio.length}/{MAX_BIO_LENGTH}
-            </span>
-          </>
-        ) : (
-          <p>{bio}</p>
-        )}
-      </div>
+      <motion.div
+        className="overview-stats-container"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <h2 className="stats-title">Your Journey</h2>
+        <div className="overview-stats">
+          <motion.div
+            className="overview-stat"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <div className="stat-circle stat-circle-green">
+              <Star size={24} />
+            </div>
+            <span className="stat-number">{(profile as any)?.wallpaperCount || 0}</span>
+            <span className="stat-label">Wallpapers</span>
+          </motion.div>
+          <motion.div
+            className="overview-stat"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <div className="stat-circle stat-circle-blue">
+              <Download size={24} />
+            </div>
+            <span className="stat-number">{profile?.downloadsCount?.toLocaleString() || 0}</span>
+            <span className="stat-label">Downloads</span>
+          </motion.div>
+          <motion.div
+            className="overview-stat"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.6 }}
+            whileHover={{ scale: 1.05 }}
+          >
+            <div className="stat-circle stat-circle-purple">
+              <Heart size={24} />
+            </div>
+            <span className="stat-number">{profile?.favoritesCount?.toLocaleString() || 0}</span>
+            <span className="stat-label">Favorites</span>
+          </motion.div>
+        </div>
+        <div className="stats-progress">
+          <motion.div
+            className="progress-line"
+            style={{ height: lineHeight }}
+          />
+        </div>
+      </motion.div>
 
-      <div className="profile-recent">
-        <h2>Recent Activity</h2>
-        <ul>
-          {recentActivity.map((item) => (
-            <li key={item}>
-              <span className="check-icon">✔</span>
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <motion.div
+        className="overview-achievements"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+      >
+        <h2 className="achievements-title">Achievements</h2>
+        <div className="achievements-grid">
+          <motion.div
+            className="achievement-item"
+            whileHover={{ scale: 1.05, y: -5 }}
+          >
+            <div className="achievement-icon">🎨</div>
+            <span>First Favorite</span>
+          </motion.div>
+          <motion.div
+            className="achievement-item"
+            whileHover={{ scale: 1.05, y: -5 }}
+          >
+            <div className="achievement-icon">⬇️</div>
+            <span>First Download</span>
+          </motion.div>
+          <motion.div
+            className="achievement-item"
+            whileHover={{ scale: 1.05, y: -5 }}
+          >
+            <div className="achievement-icon">⭐</div>
+            <span>Profile Complete</span>
+          </motion.div>
+        </div>
+      </motion.div>
     </div>
   );
 }
 
-function ActivityTab() {
+function FavoritesTab({ favorites }: { favorites: any[] }) {
+  if (!favorites || favorites.length === 0) {
+    return (
+      <motion.div
+        className="empty-state"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <div className="empty-glow" />
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <Heart size={64} className="empty-icon" />
+        </motion.div>
+        <h3>No favorites yet</h3>
+        <p>Start exploring wallpapers and save your favorites here.</p>
+        <Link href="/" className="empty-state-btn">
+          <motion.span
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Browse wallpapers
+          </motion.span>
+        </Link>
+      </motion.div>
+    );
+  }
+
   return (
-    <div className="activity-tab">
-      <h2>Activity Feed</h2>
-      <p>Your full activity timeline will appear here when you start interacting with wallpapers.</p>
-    </div>
+    <motion.div
+      className="tab-favorites"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <div className="favorites-grid">
+        {favorites.map((favorite, index) => (
+          <motion.div
+            key={favorite.id}
+            className="favorite-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            whileHover={{ scale: 1.02, y: -5 }}
+          >
+            <div className="favorite-image-container">
+              <Image
+                src={favorite.wallpaperThumbnail || "/wallpapers/placeholder.jpg"}
+                alt={favorite.wallpaperTitle}
+                fill
+                className="favorite-image"
+              />
+              <div className="favorite-overlay" />
+            </div>
+            <div className="favorite-info">
+              <h3>{favorite.wallpaperTitle}</h3>
+              <Link href={`/wallpaper/${favorite.wallpaperSlug}`} className="favorite-link">
+                View <ChevronRight size={16} />
+              </Link>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+function DownloadsTab({ downloads }: { downloads: any[] }) {
+  if (!downloads || downloads.length === 0) {
+    return (
+      <motion.div
+        className="empty-state"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+      >
+        <div className="empty-glow" />
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <Download size={64} className="empty-icon" />
+        </motion.div>
+        <h3>No downloads yet</h3>
+        <p>Your downloaded wallpapers will appear here.</p>
+        <Link href="/" className="empty-state-btn">
+          <motion.span
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Discover wallpapers
+          </motion.span>
+        </Link>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      className="tab-downloads"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <div className="downloads-grid">
+        {downloads.map((download, index) => (
+          <motion.div
+            key={download.id}
+            className="download-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            whileHover={{ scale: 1.02, y: -5 }}
+          >
+            <div className="download-info">
+              <h3>{download.wallpaperSlug}</h3>
+              <p>{download.resolution} • {download.deviceType}</p>
+              <span className="download-date">
+                {download.downloadedAt?.toDate?.()?.toLocaleDateString() || "Recently"}
+              </span>
+            </div>
+            <Link href={`/wallpaper/${download.wallpaperSlug}`} className="download-link">
+              <motion.span whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Download size={20} />
+              </motion.span>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
   );
 }
 
@@ -404,27 +1097,63 @@ interface SettingsTabProps {
 }
 
 function SettingsTab({ onSignOut }: SettingsTabProps) {
-  const settings = [
-    "Change password",
-    "Update email",
-    "Privacy settings",
-    "Delete account",
+  const settingsItems = [
+    { icon: <Grid3X3 size={20} />, label: "Appearance", description: "Customize the look and feel" },
+    { icon: <Bell size={20} />, label: "Notifications", description: "Manage your notification preferences" },
+    { icon: <Shield size={20} />, label: "Privacy", description: "Control your data and privacy" },
+    { icon: <Palette size={20} />, label: "Content", description: "Manage content preferences" },
+    { icon: <Zap size={20} />, label: "Accessibility", description: "Improve your experience" },
   ];
 
   return (
-    <div className="settings-tab">
-      <h2>Account Settings</h2>
-      <ul className="settings-list">
-        {settings.map((s) => (
-          <li key={s} className="settings-item">
-            • {s}
-          </li>
+    <motion.div
+      className="tab-settings"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <motion.div
+        className="settings-section"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <h2>Account Settings</h2>
+        <p className="settings-description">
+          Manage your account preferences and settings.
+        </p>
+      </motion.div>
+
+      <div className="settings-list">
+        {settingsItems.map((item, index) => (
+          <motion.button
+            key={item.label}
+            className="settings-item"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 + index * 0.1 }}
+            whileHover={{ x: 5, backgroundColor: "rgba(34, 197, 94, 0.1)" }}
+          >
+            <span className="settings-icon">{item.icon}</span>
+            <div className="settings-item-content">
+              <span className="settings-label">{item.label}</span>
+              <span className="settings-item-desc">{item.description}</span>
+            </div>
+            <ChevronRight size={20} className="settings-chevron" />
+          </motion.button>
         ))}
-      </ul>
-      <button onClick={onSignOut} className="profile-signout-btn">
-        <LogOut size={16} />
-        Sign Out
-      </button>
-    </div>
+      </div>
+
+      <motion.div
+        className="settings-danger"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+      >
+        <button onClick={onSignOut} className="profile-signout-btn">
+          <LogOut size={18} />
+          Sign out of your account
+        </button>
+      </motion.div>
+    </motion.div>
   );
 }

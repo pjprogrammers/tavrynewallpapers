@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  Heart, 
-  Download, 
+import { useState, useEffect } from "react";
+import {
+  Heart,
+  Download,
   Share2,
-  ChevronDown, 
-  Check, 
+  ChevronDown,
+  Check,
   Loader2,
   Monitor,
   Laptop,
-  Smartphone
+  Smartphone,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { useLike, useViewCount, useDownload, useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../../lib/wallpapers";
 
 interface WallpaperActionsProps {
@@ -25,19 +27,48 @@ interface WallpaperActionsProps {
 }
 
 export default function WallpaperActions({ wallpaper, downloadOptions }: WallpaperActionsProps) {
-  const [isLiked, setIsLiked] = useState(false);
+  const { user } = useAuth();
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [selectedResolution, setSelectedResolution] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
+  // Track view when wallpaper page loads
+  useViewCount(wallpaper.id);
+
+  // Use Firestore for likes (auto-syncs with favorites)
+  const { isLiked, loading: likeLoading, error: likeError, toggle: toggleLike } = useLike(
+    wallpaper.id,
+    {
+      slug: wallpaper.slug,
+      title: wallpaper.title,
+      thumbnail: `/wallpapers/${wallpaper.filename}`,
+    }
+  );
+
+  // Download hook
+  const { download: recordAndDownload, error: downloadError } = useDownload(wallpaper.id, wallpaper.slug);
+
+  // Get real-time stats for like count
+  const realtimeStats = useRealtimeWallpaperStats(wallpaper.id);
+
+  const handleLike = async () => {
+    if (!user) {
+      alert("Please sign in to like wallpapers");
+      return;
+    }
+    await toggleLike();
+    if (likeError) {
+      setRateLimitError(likeError);
+      setTimeout(() => setRateLimitError(null), 5000);
+    }
   };
-  
+
   const downloadImage = async (imageUrl: string, fileName: string) => {
     setIsDownloading(true);
-    
+    setRateLimitError(null);
+
     try {
       const response = await fetch(imageUrl);
       const blob = await response.blob();
@@ -58,13 +89,27 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
       setTimeout(() => setShowDownloadOptions(false), 1000);
     }
   };
-  
-  const handleDownload = (resolution: string = wallpaper.resolution || "Original") => {
+
+  const handleDownload = async (resolution: string = wallpaper.resolution || "Original", deviceType: "monitor" | "laptop" | "smartphone" | "original" = "original") => {
     const fileName = `${wallpaper.title.replace(/\s+/g, '_')}_${resolution}.jpg`;
+
+    // Record download to Firestore (with rate limiting)
+    const success = await recordAndDownload(resolution, deviceType);
+
+    if (downloadError) {
+      setRateLimitError(downloadError);
+      setTimeout(() => setRateLimitError(null), 5000);
+      return;
+    }
+
+    if (success) {
+      console.log(`[Download] Recorded: ${wallpaper.id} at ${resolution}`);
+    }
+
     downloadImage(`/wallpapers/${wallpaper.filename}`, fileName);
     setSelectedResolution(resolution);
   };
-  
+
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
@@ -88,27 +133,43 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
       default: return Monitor;
     }
   };
-  
+
+  // Helper to get device type from icon name
+  const getDeviceType = (iconName: string): "monitor" | "laptop" | "smartphone" | "original" => {
+    switch (iconName) {
+      case "Monitor": return "monitor";
+      case "Laptop": return "laptop";
+      case "Smartphone": return "smartphone";
+      default: return "original";
+    }
+  };
+
   return (
     <div className="wallpaper-actions">
       <div className="wallpaper-action-buttons">
-        <button onClick={handleLike} className={`wallpaper-action-button ${isLiked ? 'active' : ''}`}>
-          <Heart 
-            size={20} 
+        <button
+          onClick={handleLike}
+          className={`wallpaper-action-button ${isLiked ? 'active' : ''}`}
+          disabled={likeLoading}
+          title={isLiked ? "Unlike" : "Like this wallpaper"}
+        >
+          <Heart
+            size={20}
             className={`action-icon ${isLiked ? 'animate-pop' : ''}`}
             fill={isLiked ? "var(--heart)" : "none"}
           />
-          <span>Like</span>
+          <span>{isLiked ? 'Liked' : 'Like'}{realtimeStats?.likes ? ` (${realtimeStats.likes})` : ''}</span>
         </button>
+
         <button onClick={handleShare} className="wallpaper-action-button">
           <Share2 size={20} className="action-icon" />
           <span>Share</span>
         </button>
       </div>
-      
+
       {/* Download dropdown */}
       <div className="wallpaper-download-container">
-        <button 
+        <button
           onClick={() => setShowDownloadOptions(!showDownloadOptions)}
           className={`wallpaper-download-button ${showDownloadOptions ? 'active' : ''}`}
           disabled={isDownloading}
@@ -121,12 +182,12 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
             <Download size={20} />
           )}
           <span>{isDownloading ? 'Downloading...' : downloadSuccess ? 'Downloaded!' : 'Download'}</span>
-          <ChevronDown 
-            size={16} 
+          <ChevronDown
+            size={16}
             className={`chevron-icon ${showDownloadOptions ? 'rotate' : ''}`}
           />
         </button>
-        
+
         <div className={`wallpaper-download-dropdown ${showDownloadOptions ? 'show' : ''}`}>
           <div className="dropdown-header">
             <h3 className="dropdown-title">Download Options</h3>
@@ -135,11 +196,12 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
           <div className="dropdown-options">
             {downloadOptions.map((option) => {
               const IconComponent = getIconComponent(option.icon);
+              const deviceType = getDeviceType(option.icon);
               return (
                 <button
                   key={option.resolution}
                   className={`dropdown-option ${selectedResolution === option.resolution ? 'selected' : ''}`}
-                  onClick={() => handleDownload(option.resolution)}
+                  onClick={() => handleDownload(option.resolution, deviceType)}
                 >
                   <div className="dropdown-option-icon">
                     <IconComponent size={18} />
@@ -159,4 +221,4 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
       </div>
     </div>
   );
-} 
+}
