@@ -1,3 +1,4 @@
+import { Metadata } from 'next';
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import WallpaperGridWithStats from "./components/WallpaperGridWithStats";
@@ -9,13 +10,99 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, Download, Heart, TrendingUp } from "lucide-react";
 
+const SITE_URL = 'https://tavrynewallpapers.vercel.app';
+const SITE_NAME = 'Tavryne Wallpapers';
+
+export const metadata: Metadata = {
+  title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
+  description: 'Discover and download stunning high-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers. Free wallpapers for desktop and mobile.',
+  keywords: [
+    SITE_NAME,
+    'wallpapers',
+    '4K wallpapers',
+    '8K wallpapers',
+    'anime wallpapers',
+    'gaming wallpapers',
+    'cyberpunk wallpapers',
+    'aesthetic wallpapers',
+    'desktop wallpapers',
+    'mobile wallpapers',
+  ],
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
+    description: 'Discover and download stunning high-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.',
+    images: [
+      {
+        url: `${SITE_URL}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} - Premium HD & 4K Wallpapers`,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
+    description: 'Discover and download stunning high-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.',
+    images: [`${SITE_URL}/og-image.png`],
+  },
+};
+
 export default function Home() {
   const allWallpapers = getAllWallpapers().slice(0, 8);
   const trendingWallpapers = getTrendingWallpapers().slice(0, 4);
   const featuredWallpapers = getFeaturedWallpapers().slice(0, 6);
-  
+
+  // JSON-LD Schema for homepage
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    url: SITE_URL,
+    description: 'Discover and download stunning high-resolution 4K, HD, and 8K wallpapers for desktop and mobile.',
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: `${SITE_URL}/logo.png`,
+    },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+    mainEntity: {
+      '@type': 'CollectionPage',
+      name: 'Wallpaper Collection',
+      description: 'High-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers',
+      url: SITE_URL,
+      numberOfItems: getAllWallpapers().length,
+    },
+    breadcrumb: {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      ],
+    },
+  };
+
   return (
-    <div className="page-wrapper">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="page-wrapper">
       <Header />
       
       {/* Hero Section */}
@@ -169,5 +256,6 @@ export default function Home() {
       
       <Footer />
     </div>
+    </>
   );
 }

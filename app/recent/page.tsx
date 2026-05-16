@@ -1,3 +1,4 @@
+import { Metadata } from 'next';
 import Link from "next/link";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -6,6 +7,26 @@ import SearchBar from "../components/SearchBar";
 import CategoryList from "../components/CategoryList";
 import { categories, getRecentWallpapers } from "../lib/wallpapers";
 import { ArrowLeft } from "lucide-react";
+
+const SITE_URL = 'https://tavrynewallpapers.vercel.app';
+const SITE_NAME = 'Tavryne Wallpapers';
+
+export const metadata: Metadata = {
+  title: `Recent Wallpapers | ${SITE_NAME}`,
+  description: 'Browse the latest wallpapers added to our collection. New 4K, HD, and 8K wallpapers added daily.',
+  keywords: ['recent wallpapers', 'new wallpapers', 'latest wallpapers', SITE_NAME],
+  alternates: {
+    canonical: `${SITE_URL}/recent`,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: `${SITE_URL}/recent`,
+    siteName: SITE_NAME,
+    title: `Recent Wallpapers | ${SITE_NAME}`,
+    description: 'Browse the latest wallpapers added to our collection.',
+  },
+};
 
 export default function RecentPage() {
   const recentWallpapers = getRecentWallpapers();

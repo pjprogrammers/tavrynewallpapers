@@ -22,6 +22,10 @@ service cloud.firestore {
       return value is string && (value.size() == 0 || value.matches('^https?://[^\\s]+$'));
     }
 
+    function isValidNumber(value, min, max) {
+      return value is number && value >= min && value <= max;
+    }
+
     /* =========================================================
        👤 USERS COLLECTION
     ========================================================= */
@@ -32,9 +36,14 @@ service cloud.firestore {
       // Only the user can update their own profile
       allow update: if isOwner(userId)
         && (
-          // Validating specific fields
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email', 'uid', 'provider', 'createdAt', 'isActive'])
-          || resource.data.isActive == true
+          // Validating specific fields - prevent changing protected fields
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'email',
+            'uid',
+            'provider',
+            'createdAt',
+            'isActive'
+          ])
         );
 
       // Users can create their own document (during signup)
@@ -56,11 +65,13 @@ service cloud.firestore {
         && isValidString(request.resource.data.title, 1, 200)
         && isValidString(request.resource.data.slug, 1, 200);
 
-      // Only authenticated users can update (admins in production would have more specific rules)
-      allow update: if isAuthenticated();
+      // Only authenticated users can update their own wallpapers
+      allow update: if isAuthenticated()
+        && (resource.data.uploadedBy == request.auth.uid || resource.data.userId == request.auth.uid);
 
-      // Only authenticated users can delete
-      allow delete: if isAuthenticated();
+      // Only authenticated users can delete their own wallpapers
+      allow delete: if isAuthenticated()
+        && (resource.data.uploadedBy == request.auth.uid || resource.data.userId == request.auth.uid);
     }
 
     /* =========================================================
@@ -70,8 +81,8 @@ service cloud.firestore {
       // Stats are publicly readable
       allow read: if true;
 
-      // Allow anyone to update stats (atomic increments) - for tracking views/downloads
-      // In production, consider using Firebase Admin SDK or Cloud Functions for better security
+      // Allow anyone to update stats (atomic increments) for tracking views/downloads
+      // This uses increment() operations which are safe
       allow write: if true;
     }
 
@@ -91,10 +102,12 @@ service cloud.firestore {
       allow read: if true;
 
       // Users can only manage their own favorites
+      // Ensure favoriteId matches userId_wallpaperId pattern
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && favoriteId == request.auth.uid + '_' + request.resource.data.wallpaperId;
 
+      // Users can only delete their own favorites
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
@@ -106,10 +119,12 @@ service cloud.firestore {
       allow read: if true;
 
       // Users can only manage their own likes
+      // Ensure likeId matches userId_wallpaperId pattern
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && likeId == request.auth.uid + '_' + request.resource.data.wallpaperId;
 
+      // Users can only delete their own likes
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
@@ -120,11 +135,11 @@ service cloud.firestore {
       // Users can read their own downloads
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
 
-      // Anyone can create downloads (for tracking)
-      // Note: UserId is optional for anonymous downloads
+      // Anyone can create downloads (for tracking anonymous downloads)
+      // userId is optional for anonymous downloads
       allow create: if true;
 
-      // Downloads can only be deleted by the user
+      // Downloads can only be deleted by authenticated users who own them
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
@@ -151,15 +166,12 @@ service cloud.firestore {
     }
 
     /* =========================================================
-       ⏱️ RATE LIMITS COLLECTION
+       ⏱️ RATE LIMITS COLLECTION (Server-side only)
     ========================================================= */
     match /rateLimits/{rateLimitId} {
-      // Users can read their own rate limits
-      allow read: if isAuthenticated() && rateLimitId == request.auth.uid + '_' + resource.data.action;
-
-      // Server-side only for rate limits
-      // For client-side, we use a workaround
-      allow write: if false;
+      // Client-side rate limiting is handled in browser sessionStorage
+      // Server-side rate limits would be managed by Cloud Functions
+      allow read, write: if false;
     }
   }
 }

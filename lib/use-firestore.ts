@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./auth-context";
-import firestore, {
+import {
   // User
   createOrUpdateUser,
   getUserProfile,

@@ -28,9 +28,16 @@ export const DownloadsContent = () => {
 
   if (authLoading || downloadsLoading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <p>Loading downloads...</p>
+      <div className="downloads-page" style={{ minHeight: "60vh" }}>
+        <div className="page-header">
+          <h1>Your Downloads</h1>
+          <p>Loading...</p>
+        </div>
+        <div className="cards-grid-skeleton">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass-card-skeleton" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -84,11 +91,12 @@ export const DownloadsContent = () => {
       </div>
 
       <div className="cards-grid">
-        {Object.entries(groupedDownloads).map(([wallpaperId, wallpaperDownloads]) => (
+        {Object.entries(groupedDownloads).map(([wallpaperId, wallpaperDownloads], index) => (
           <DownloadCard
             key={wallpaperId}
             wallpaperId={wallpaperId}
             downloads={wallpaperDownloads}
+            priority={index < 4}
           />
         ))}
       </div>
@@ -99,9 +107,10 @@ export const DownloadsContent = () => {
 interface DownloadCardProps {
   wallpaperId: string;
   downloads: DownloadRecord[];
+  priority?: boolean;
 }
 
-const DownloadCard = ({ wallpaperId, downloads }: DownloadCardProps) => {
+const DownloadCard = ({ wallpaperId, downloads, priority = false }: DownloadCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const latestDownload = downloads[0];
 
@@ -134,7 +143,7 @@ const DownloadCard = ({ wallpaperId, downloads }: DownloadCardProps) => {
             fill
             className={`glass-card-img ${isHovered ? "blurred" : ""}`}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            unoptimized
+            priority={priority}
           />
         </div>
 

@@ -41,10 +41,8 @@ const Header = () => {
    */
   const avatarUrl = useMemo(() => {
     if (user?.photoURL) return user.photoURL;
-    const seed = encodeURIComponent(
-      user?.displayName || user?.email || "User"
-    );
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
+    // Default fallback to local avatar
+    return "/avatars_preset/aiden.svg";
   }, [user]);
 
   /**
@@ -349,6 +347,41 @@ const Header = () => {
       <div className={`mobile-nav ${isMenuOpen ? "open" : ""}`}>
         <div className="container">
           <nav className="mobile-nav-menu">
+            {/* Auth Section - Sign Up/Login or User Profile */}
+            {!user ? (
+              <>
+                <Link
+                  href="/signup"
+                  className="mobile-nav-link mobile-nav-auth"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <UserPlus size={20} className="mobile-nav-icon" />
+                  <span>Sign Up</span>
+                </Link>
+                <Link
+                  href="/login"
+                  className="mobile-nav-link"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <User size={20} className="mobile-nav-icon" />
+                  <span>Sign In</span>
+                </Link>
+                <div className="mobile-nav-divider" />
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/profile"
+                  className="mobile-nav-link mobile-nav-user"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <img src={avatarUrl} alt="Profile" className="mobile-nav-avatar" />
+                  <span>Your Profile</span>
+                </Link>
+                <div className="mobile-nav-divider" />
+              </>
+            )}
+
             <Link
               href="/"
               className={`mobile-nav-link ${isActive("/") ? "active" : ""}`}
@@ -391,29 +424,33 @@ const Header = () => {
 
             <div className="mobile-nav-divider" />
 
-            <Link
-              href="/downloads"
-              className={`mobile-nav-link ${
-                isActive("/downloads") ? "active" : ""
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Download size={20} className="mobile-nav-icon" />
-              <span>Downloads</span>
-            </Link>
+            {user && (
+              <>
+                <Link
+                  href="/downloads"
+                  className={`mobile-nav-link ${
+                    isActive("/downloads") ? "active" : ""
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Download size={20} className="mobile-nav-icon" />
+                  <span>Downloads</span>
+                </Link>
 
-            <Link
-              href="/favorites"
-              className={`mobile-nav-link ${
-                isActive("/favorites") ? "active" : ""
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Heart size={20} className="mobile-nav-icon" />
-              <span>Favorites</span>
-            </Link>
+                <Link
+                  href="/favorites"
+                  className={`mobile-nav-link ${
+                    isActive("/favorites") ? "active" : ""
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Heart size={20} className="mobile-nav-icon" />
+                  <span>Favorites</span>
+                </Link>
 
-            <div className="mobile-nav-divider" />
+                <div className="mobile-nav-divider" />
+              </>
+            )}
 
             <button
               className="mobile-search-button"
@@ -426,6 +463,24 @@ const Header = () => {
               <Search size={20} />
               <span>Search</span>
             </button>
+
+            {/* Logout button for logged in users */}
+            {user && (
+              <>
+                <div className="mobile-nav-divider" />
+                <button
+                  className="mobile-nav-link mobile-nav-logout"
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  type="button"
+                >
+                  <LogOut size={20} className="mobile-nav-icon" />
+                  <span>Sign Out</span>
+                </button>
+              </>
+            )}
           </nav>
         </div>
       </div>

@@ -39,9 +39,12 @@ import "./profile.css";
 
 import Header from "@/app/components/Header";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
-import * as THREE from "three";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { ParticleField } from "./ParticleField";
+import dynamic from "next/dynamic";
+
+const AnimatedBackground = dynamic(() => import("./AnimatedBackgroundLazy").then(mod => mod.AnimatedBackground), {
+  ssr: false,
+  loading: () => <div className="animated-background" />
+});
 
 type TabKey = "overview" | "favorites" | "downloads" | "settings";
 
@@ -62,92 +65,6 @@ const DEFAULT_BIO = "Passionate wallpaper enthusiast exploring digital aesthetic
 const MAX_NAME_LENGTH = 50;
 const MAX_BIO_LENGTH = 160;
 
-function AnimatedBackground() {
-  return (
-    <div className="animated-background">
-      <Canvas camera={{ position: [0, 0, 1] }}>
-        <ParticleField />
-      </Canvas>
-      <div className="absolute inset-0 bg-gradient-to-b from-black via-black/95 to-black" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-900/10 via-transparent to-transparent" />
-    </div>
-  );
-}
-
-function GlowingOrb() {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x = state.clock.elapsedTime * 0.1;
-      meshRef.current.rotation.y = state.clock.elapsedTime * 0.15;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef}>
-      <icosahedronGeometry args={[1, 1]} />
-      <meshBasicMaterial color="#22c55e" wireframe transparent opacity={0.3} />
-    </mesh>
-  );
-}
-
-function FloatingParticles() {
-  const particlesRef = useRef<THREE.Points>(null);
-  const count = 200;
-
-  const geometry = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 10;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    return geo;
-  }, []);
-
-  useFrame((state) => {
-    if (particlesRef.current) {
-      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.02;
-    }
-  });
-
-  return (
-    <points ref={particlesRef} geometry={geometry}>
-      <pointsMaterial size={0.03} color="#22c55e" transparent opacity={0.6} />
-    </points>
-  );
-}
-
-function ProfileOrb() {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5) * 0.3;
-      meshRef.current.rotation.y = state.clock.elapsedTime * 0.3;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef} position={[3, 2, -2]}>
-      <octahedronGeometry args={[0.8]} />
-      <meshBasicMaterial color="#22c55e" wireframe transparent opacity={0.4} />
-    </mesh>
-  );
-}
-
-function Profile3DBackground() {
-  return (
-    <Canvas camera={{ position: [0, 0, 5] }}>
-      <FloatingParticles />
-      <ProfileOrb />
-    </Canvas>
-  );
-}
-
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -160,9 +77,15 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: containerRef });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  const scrollTarget = isMounted && containerRef.current ? containerRef : undefined;
+  const { scrollYProgress } = useScroll({ target: scrollTarget });
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Avatar modal state
   const [showAvatarModal, setShowAvatarModal] = useState(false);
@@ -264,11 +187,29 @@ export default function ProfilePage() {
       return;
     }
     setUploadingAvatar(true);
+    setError(null);
     try {
-      await handleAvatarUpload(urlInput);
+      // Rehost external URL through Cloudinary first
+      const response = await fetch("/api/reupload-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: urlInput.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success || !data.imageUrl) {
+        throw new Error(data.error || "Failed to process image URL");
+      }
+
+      // Use the Cloudinary URL, not the original external URL
+      const cloudinaryUrl = data.imageUrl;
+      await handleAvatarUpload(cloudinaryUrl);
       setShowAvatarModal(false);
+      setUrlInput("");
     } catch (err) {
-      setError("Failed to load image from URL.");
+      console.error("[Profile] URL upload failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to load image from URL.");
     } finally {
       setUploadingAvatar(false);
     }
@@ -278,9 +219,9 @@ export default function ProfilePage() {
   const displayAvatarUrl = useMemo(() => {
     if (avatarUrl) return avatarUrl;
     if (user?.photoURL) return user.photoURL;
-    const seed = encodeURIComponent(user?.displayName || user?.email || "User");
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}`;
-  }, [avatarUrl, user?.photoURL, user?.displayName, user?.email]);
+    // Default fallback to local avatar
+    return "/avatars_preset/aiden.svg";
+  }, [avatarUrl, user?.photoURL]);
 
   const memberSince = useMemo(() => {
     const created = (user as any)?.metadata?.creationTime;
@@ -343,9 +284,9 @@ export default function ProfilePage() {
       });
 
       const { doc, setDoc } = await import("firebase/firestore");
-      const { db } = await import("@/lib/firebase");
+      const { getDB } = await import("@/lib/firebase");
       const { COLLECTIONS } = await import("@/lib/firestore");
-      const userRef = doc(db, COLLECTIONS.USERS, user!.uid);
+      const userRef = doc(getDB(), COLLECTIONS.USERS, user!.uid);
       await setDoc(userRef, { bio: formData.bio.trim() }, { merge: true });
 
       setIsEditing(false);
@@ -423,7 +364,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="profile-page" ref={containerRef}>
+    <main className="profile-page" ref={containerRef} style={{ position: 'relative' }}>
       <AnimatedBackground />
       <Header />
 
@@ -448,17 +389,14 @@ export default function ProfilePage() {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <div className="avatar-orb-container">
-              <div className="avatar-orb avatar-orb-1" />
-              <div className="avatar-orb avatar-orb-2" />
-              <div className="avatar-ring" />
-              <div className="avatar-glow" />
+            <div className="avatar-container">
               <Image
                 src={displayAvatarUrl}
                 alt={`${user.displayName || "User"} avatar`}
                 width={200}
                 height={200}
                 className="profile-avatar"
+                priority
                 unoptimized
               />
               <button
@@ -554,41 +492,7 @@ export default function ProfilePage() {
               </div>
             </motion.div>
 
-            <motion.div
-              className="profile-stats-row"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1 }}
-            >
-              <motion.div
-                className="profile-stat-card"
-                whileHover={{ scale: 1.05, y: -5 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <Star size={20} className="stat-icon" />
-                <strong>{(profile as any)?.wallpaperCount || 0}</strong>
-                <span>wallpapers</span>
-              </motion.div>
-              <motion.div
-                className="profile-stat-card"
-                whileHover={{ scale: 1.05, y: -5 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <Heart size={20} className="stat-icon" />
-                <strong>{favorites.length}</strong>
-                <span>favorites</span>
-              </motion.div>
-              <motion.div
-                className="profile-stat-card"
-                whileHover={{ scale: 1.05, y: -5 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <Download size={20} className="stat-icon" />
-                <strong>{downloads.length}</strong>
-                <span>downloads</span>
-              </motion.div>
-            </motion.div>
-          </div>
+                      </div>
 
           <motion.div
             className="profile-actions"
@@ -703,7 +607,7 @@ export default function ProfilePage() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
-              {activeTab === "overview" && <OverviewTab profile={profile} />}
+              {activeTab === "overview" && <OverviewTab profile={profile} downloads={downloads} favorites={favorites} />}
               {activeTab === "favorites" && <FavoritesTab favorites={favorites} />}
               {activeTab === "downloads" && <DownloadsTab downloads={downloads} />}
               {activeTab === "settings" && <SettingsTab onSignOut={handleSignOut} />}
@@ -777,26 +681,25 @@ export default function ProfilePage() {
                 {avatarTab === "preset" && (
                   <div className="avatar-preset-grid">
                     {[
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_30.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_17.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_5.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_7.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_35.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_4.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_29.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_26.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_31.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_32.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_22.png",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/memo_16.png",
-                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Aiden",
-                      "https://api.dicebear.com/7.x/adventurer/svg?seed=Wallpaper",
-                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Oliver",
-                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Brian",
-                      "https://api.dicebear.com/9.x/toon-head/svg?seed=Sara",
-                      "https://api.dicebear.com/9.x/adventurer/svg?seed=Maria",
-                      "https://cdn.jsdelivr.net/gh/alohe/memojis/png/3d_4.png",
-                      "https://api.dicebear.com/7.x/bottts/svg?seed=Cyber",
+                      "/avatars_preset/memo_30.png",
+                      "/avatars_preset/memo_17.png",
+                      "/avatars_preset/memo_5.png",
+                      "/avatars_preset/memo_7.png",
+                      "/avatars_preset/memo_35.png",
+                      "/avatars_preset/memo_4.png",
+                      "/avatars_preset/memo_29.png",
+                      "/avatars_preset/memo_26.png",
+                      "/avatars_preset/memo_31.png",
+                      "/avatars_preset/memo_32.png",
+                      "/avatars_preset/memo_22.png",
+                      "/avatars_preset/memo_16.png",
+                      "/avatars_preset/aiden.svg",
+                      "/avatars_preset/oliver.svg",
+                      "/avatars_preset/brian.svg",
+                      "/avatars_preset/sara.svg",
+                      "/avatars_preset/girl.svg",
+                      "/avatars_preset/3d_4.png",
+                      "/avatars_preset/robo.svg",
                     ].map((url, idx) => (
                       <button
                         key={idx}
@@ -847,13 +750,19 @@ export default function ProfilePage() {
 }
 
 // ==================== TABS COMPONENTS (unchanged) ====================
-function OverviewTab({ profile }: { profile: any }) {
-  const containerRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: containerRef });
+function OverviewTab({ profile, downloads, favorites }: { profile: any; downloads: any[]; favorites: any[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  const scrollTarget = isMounted && containerRef.current ? containerRef : undefined;
+  const { scrollYProgress } = useScroll({ target: scrollTarget });
   const lineHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
-    <div className="tab-overview" ref={containerRef}>
+    <div className="tab-overview" ref={containerRef} style={{ position: 'relative' }}>
       <motion.div
         className="overview-card"
         initial={{ opacity: 0, y: 30 }}
@@ -901,7 +810,7 @@ function OverviewTab({ profile }: { profile: any }) {
             <div className="stat-circle stat-circle-blue">
               <Download size={24} />
             </div>
-            <span className="stat-number">{profile?.downloadsCount?.toLocaleString() || 0}</span>
+            <span className="stat-number">{downloads.length}</span>
             <span className="stat-label">Downloads</span>
           </motion.div>
           <motion.div
@@ -914,7 +823,7 @@ function OverviewTab({ profile }: { profile: any }) {
             <div className="stat-circle stat-circle-purple">
               <Heart size={24} />
             </div>
-            <span className="stat-number">{profile?.favoritesCount?.toLocaleString() || 0}</span>
+            <span className="stat-number">{favorites.length}</span>
             <span className="stat-label">Favorites</span>
           </motion.div>
         </div>

@@ -21,7 +21,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 
-import { db } from "./firebase";
+import { getDB as getDBInstance } from "./firebase";
 import {
   COLLECTIONS,
   SUB_COLLECTIONS,
@@ -55,7 +55,7 @@ export const createOrUpdateUser = async (
     provider: string;
   }
 ): Promise<void> => {
-  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userRef = doc(getDBInstance(), COLLECTIONS.USERS, userId);
   const userDoc = await getDoc(userRef);
 
   const userData: Omit<UserProfile, "createdAt" | "lastLogin"> & {
@@ -88,7 +88,7 @@ export const createOrUpdateUser = async (
 export const getUserProfile = async (
   userId: string
 ): Promise<UserProfile | null> => {
-  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userRef = doc(getDBInstance(), COLLECTIONS.USERS, userId);
   const userDoc = await getDoc(userRef);
 
   if (!userDoc.exists()) {
@@ -106,7 +106,7 @@ export const updateUserProfile = async (
   userId: string,
   data: Partial<Pick<UserProfile, "displayName" | "photoURL">>
 ): Promise<void> => {
-  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userRef = doc(getDBInstance(), COLLECTIONS.USERS, userId);
   const updateData: Record<string, unknown> = { updatedAt: serverTimestamp() };
 
   if (data.displayName !== undefined) {
@@ -125,7 +125,7 @@ export const updateUserProfile = async (
 export const getPublicUserProfile = async (
   userId: string
 ): Promise<UserProfilePublic | null> => {
-  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userRef = doc(getDBInstance(), COLLECTIONS.USERS, userId);
   const userDoc = await getDoc(userRef);
 
   if (!userDoc.exists()) {
@@ -153,10 +153,10 @@ export const createWallpaper = async (
     id?: string;
   }
 ): Promise<string> => {
-  const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, data.id || "");
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, data.id || "");
+  const wallpaperRef = doc(getDBInstance(), COLLECTIONS.WALLPAPERS, data.id || "");
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, data.id || "");
 
-  const batch = writeBatch(db);
+  const batch = writeBatch(getDBInstance());
 
   batch.set(wallpaperRef, {
     ...data,
@@ -187,7 +187,7 @@ export const createWallpaper = async (
 export const getWallpaperMetadata = async (
   wallpaperId: string
 ): Promise<WallpaperMetadata | null> => {
-  const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, wallpaperId);
+  const wallpaperRef = doc(getDBInstance(), COLLECTIONS.WALLPAPERS, wallpaperId);
   const wallpaperDoc = await getDoc(wallpaperRef);
 
   if (!wallpaperDoc.exists()) {
@@ -203,7 +203,7 @@ export const getWallpaperMetadata = async (
 export const getWallpaperBySlug = async (
   slug: string
 ): Promise<WallpaperMetadata | null> => {
-  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
+  const wallpapersRef = collection(getDBInstance(), COLLECTIONS.WALLPAPERS);
   const q = query(wallpapersRef, where("slug", "==", slug), limit(1));
   const snapshot = await getDocs(q);
 
@@ -223,7 +223,7 @@ export const getWallpapersByCategory = async (
   pageSize: number = 20,
   lastDoc?: DocumentReference<WallpaperMetadata>
 ): Promise<WallpaperMetadata[]> => {
-  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
+  const wallpapersRef = collection(getDBInstance(), COLLECTIONS.WALLPAPERS);
   let q = query(
     wallpapersRef,
     where("categoryId", "==", categoryId),
@@ -249,7 +249,7 @@ export const getAllWallpapers = async (
   pageSize: number = 20,
   lastDoc?: DocumentReference<WallpaperMetadata>
 ): Promise<WallpaperMetadata[]> => {
-  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
+  const wallpapersRef = collection(getDBInstance(), COLLECTIONS.WALLPAPERS);
   let q = query(
     wallpapersRef,
     orderBy("createdAt", "desc"),
@@ -274,7 +274,7 @@ export const searchWallpapers = async (
   searchTerm: string,
   pageSize: number = 20
 ): Promise<WallpaperMetadata[]> => {
-  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
+  const wallpapersRef = collection(getDBInstance(), COLLECTIONS.WALLPAPERS);
   const q = query(
     wallpapersRef,
     where("title", ">=", searchTerm),
@@ -299,7 +299,7 @@ export const searchWallpapers = async (
 export const getWallpaperStats = async (
   wallpaperId: string
 ): Promise<WallpaperStats | null> => {
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
   const statsDoc = await getDoc(statsRef);
 
   if (!statsDoc.exists()) {
@@ -314,7 +314,7 @@ export const getWallpaperStats = async (
  * Increment view count (atomic operation)
  */
 export const incrementViewCount = async (wallpaperId: string): Promise<void> => {
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
   await setDoc(statsRef, {
     wallpaperId,
     views: increment(1),
@@ -326,7 +326,7 @@ export const incrementViewCount = async (wallpaperId: string): Promise<void> => 
  * Increment download count (atomic operation)
  */
 export const incrementDownloadCount = async (wallpaperId: string): Promise<void> => {
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
   await setDoc(statsRef, {
     wallpaperId,
     downloads: increment(1),
@@ -338,7 +338,7 @@ export const incrementDownloadCount = async (wallpaperId: string): Promise<void>
  * Increment click count (atomic operation)
  */
 export const incrementClickCount = async (wallpaperId: string): Promise<void> => {
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
   await setDoc(statsRef, {
     wallpaperId,
     clicks: increment(1),
@@ -359,7 +359,7 @@ export const recordImpression = async (
   }
 ): Promise<void> => {
   // Record individual impression for analytics
-  const impressionsRef = collection(db, COLLECTIONS.IMPRESSIONS);
+  const impressionsRef = collection(getDBInstance(), COLLECTIONS.IMPRESSIONS);
   await addDoc(impressionsRef, {
     wallpaperId: data.wallpaperId,
     userId: data.userId || null,
@@ -385,7 +385,7 @@ export const recordClick = async (
   }
 ): Promise<void> => {
   // Record individual click for analytics
-  const clicksRef = collection(db, COLLECTIONS.CLICKS);
+  const clicksRef = collection(getDBInstance(), COLLECTIONS.CLICKS);
   await addDoc(clicksRef, {
     wallpaperId: data.wallpaperId,
     userId: data.userId || null,
@@ -405,7 +405,7 @@ export const subscribeToWallpaperStats = (
   wallpaperId: string,
   callback: (stats: WallpaperStats | null) => void
 ): Unsubscribe => {
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
 
   return onSnapshot(statsRef, (doc) => {
     if (doc.exists()) {
@@ -433,7 +433,7 @@ export const subscribeToMultipleWallpaperStats = (
   const statsMap = new Map<string, WallpaperStats>();
 
   wallpaperIds.forEach((id) => {
-    const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, id);
+    const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, id);
     const unsub = onSnapshot(statsRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
@@ -466,7 +466,7 @@ export const addToFavorites = async (
   }
 ): Promise<{ success: boolean; error?: string }> => {
   const favoriteId = `${userId}_${wallpaper.id}`;
-  const favoriteRef = doc(db, COLLECTIONS.FAVORITES, favoriteId);
+  const favoriteRef = doc(getDBInstance(), COLLECTIONS.FAVORITES, favoriteId);
 
   const existingDoc = await getDoc(favoriteRef);
   if (existingDoc.exists()) {
@@ -485,7 +485,7 @@ export const addToFavorites = async (
   await setDoc(favoriteRef, favoriteData);
 
   // Increment favorites count atomically
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaper.id);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaper.id);
   await setDoc(statsRef, { wallpaperId: wallpaper.id, favorites: increment(1) }, { merge: true });
 
   return { success: true };
@@ -499,7 +499,7 @@ export const removeFromFavorites = async (
   wallpaperId: string
 ): Promise<{ success: boolean; error?: string }> => {
   const favoriteId = `${userId}_${wallpaperId}`;
-  const favoriteRef = doc(db, COLLECTIONS.FAVORITES, favoriteId);
+  const favoriteRef = doc(getDBInstance(), COLLECTIONS.FAVORITES, favoriteId);
 
   const existingDoc = await getDoc(favoriteRef);
   if (!existingDoc.exists()) {
@@ -509,7 +509,7 @@ export const removeFromFavorites = async (
   await deleteDoc(favoriteRef);
 
   // Decrement favorites count atomically
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
   await setDoc(statsRef, { wallpaperId, favorites: increment(-1) }, { merge: true });
 
   return { success: true };
@@ -523,7 +523,7 @@ export const isFavorited = async (
   wallpaperId: string
 ): Promise<boolean> => {
   const favoriteId = `${userId}_${wallpaperId}`;
-  const favoriteRef = doc(db, COLLECTIONS.FAVORITES, favoriteId);
+  const favoriteRef = doc(getDBInstance(), COLLECTIONS.FAVORITES, favoriteId);
   const favoriteDoc = await getDoc(favoriteRef);
   return favoriteDoc.exists();
 };
@@ -536,7 +536,7 @@ export const getUserFavorites = async (
   pageSize: number = 20,
   lastDoc?: DocumentReference<Favorite>
 ): Promise<Favorite[]> => {
-  const favoritesRef = collection(db, COLLECTIONS.FAVORITES);
+  const favoritesRef = collection(getDBInstance(), COLLECTIONS.FAVORITES);
   let q = query(
     favoritesRef,
     where("userId", "==", userId),
@@ -562,7 +562,7 @@ export const subscribeToUserFavorites = (
   userId: string,
   callback: (favorites: Favorite[]) => void
 ): Unsubscribe => {
-  const favoritesRef = collection(db, COLLECTIONS.FAVORITES);
+  const favoritesRef = collection(getDBInstance(), COLLECTIONS.FAVORITES);
   const q = query(
     favoritesRef,
     where("userId", "==", userId),
@@ -610,9 +610,9 @@ export const toggleLike = async (
   wallpaperData?: { slug: string; title: string; thumbnail?: string }
 ): Promise<{ liked: boolean; error?: string }> => {
   const likeId = `${userId}_${wallpaperId}`;
-  const likeRef = doc(db, COLLECTIONS.LIKES, likeId);
+  const likeRef = doc(getDBInstance(), COLLECTIONS.LIKES, likeId);
   const favoriteId = `${userId}_${wallpaperId}`;
-  const favoriteRef = doc(db, COLLECTIONS.FAVORITES, favoriteId);
+  const favoriteRef = doc(getDBInstance(), COLLECTIONS.FAVORITES, favoriteId);
 
   const existingDoc = await getDoc(likeRef);
 
@@ -628,7 +628,7 @@ export const toggleLike = async (
     }
 
     // Decrement both likes and favorites counts atomically
-    const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+    const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
     await setDoc(statsRef, { wallpaperId, likes: increment(-1), favorites: increment(-1) }, { merge: true });
 
     return { liked: false };
@@ -661,7 +661,7 @@ export const toggleLike = async (
     }
 
     // Increment both likes and favorites counts atomically
-    const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+    const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
     await setDoc(statsRef, { wallpaperId, likes: increment(1), favorites: increment(1) }, { merge: true });
 
     return { liked: true };
@@ -673,7 +673,7 @@ export const toggleLike = async (
  */
 export const isLiked = async (userId: string, wallpaperId: string): Promise<boolean> => {
   const likeId = `${userId}_${wallpaperId}`;
-  const likeRef = doc(db, COLLECTIONS.LIKES, likeId);
+  const likeRef = doc(getDBInstance(), COLLECTIONS.LIKES, likeId);
   const likeDoc = await getDoc(likeRef);
   return likeDoc.exists();
 };
@@ -685,7 +685,7 @@ export const getUserLikes = async (
   userId: string,
   pageSize: number = 20
 ): Promise<Like[]> => {
-  const likesRef = collection(db, COLLECTIONS.LIKES);
+  const likesRef = collection(getDBInstance(), COLLECTIONS.LIKES);
   const q = query(
     likesRef,
     where("userId", "==", userId),
@@ -707,7 +707,7 @@ export const subscribeToUserLikes = (
   userId: string,
   callback: (likes: Set<string>) => void
 ): Unsubscribe => {
-  const likesRef = collection(db, COLLECTIONS.LIKES);
+  const likesRef = collection(getDBInstance(), COLLECTIONS.LIKES);
   const q = query(likesRef, where("userId", "==", userId));
 
   return onSnapshot(q, (snapshot) => {
@@ -754,7 +754,7 @@ export const recordDownload = async (
     deviceType: "monitor" | "laptop" | "smartphone" | "original";
   }
 ): Promise<{ id?: string; error?: string }> => {
-  const downloadsRef = collection(db, COLLECTIONS.DOWNLOADS);
+  const downloadsRef = collection(getDBInstance(), COLLECTIONS.DOWNLOADS);
 
   const downloadData: Omit<Download, "id"> = {
     ...data,
@@ -764,7 +764,7 @@ export const recordDownload = async (
   const docRef = await addDoc(downloadsRef, downloadData);
 
   // Increment download count atomically
-  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, data.wallpaperId);
+  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, data.wallpaperId);
   await setDoc(statsRef, { wallpaperId: data.wallpaperId, downloads: increment(1), lastDownloaded: serverTimestamp() }, { merge: true });
 
   return { id: docRef.id };
@@ -777,7 +777,7 @@ export const getUserDownloads = async (
   userId: string,
   pageSize: number = 20
 ): Promise<Download[]> => {
-  const downloadsRef = collection(db, COLLECTIONS.DOWNLOADS);
+  const downloadsRef = collection(getDBInstance(), COLLECTIONS.DOWNLOADS);
   const q = query(
     downloadsRef,
     where("userId", "==", userId),
@@ -799,7 +799,7 @@ export const hasDownloaded = async (
   userId: string,
   wallpaperId: string
 ): Promise<boolean> => {
-  const downloadsRef = collection(db, COLLECTIONS.DOWNLOADS);
+  const downloadsRef = collection(getDBInstance(), COLLECTIONS.DOWNLOADS);
   const q = query(
     downloadsRef,
     where("userId", "==", userId),
@@ -818,7 +818,7 @@ export const subscribeToUserDownloads = (
   userId: string,
   callback: (downloads: Download[]) => void
 ): Unsubscribe => {
-  const downloadsRef = collection(db, COLLECTIONS.DOWNLOADS);
+  const downloadsRef = collection(getDBInstance(), COLLECTIONS.DOWNLOADS);
   const q = query(
     downloadsRef,
     where("userId", "==", userId),
@@ -854,7 +854,7 @@ export const recordView = async (
     };
   }
 ): Promise<void> => {
-  const viewsRef = collection(db, COLLECTIONS.WALLPAPERS, data.wallpaperId, "views");
+  const viewsRef = collection(getDBInstance(), COLLECTIONS.WALLPAPERS, data.wallpaperId, "views");
 
   // Pinterest-style quality scoring:
   // - View duration >= 5 seconds = high quality (score: 1.0)
@@ -885,7 +885,7 @@ export const getPopularWallpapers = async (
   sortBy: "views" | "downloads" | "likes" | "favorites" = "downloads",
   limitCount: number = 20
 ): Promise<WallpaperStats[]> => {
-  const statsRef = collection(db, COLLECTIONS.WALLPAPER_STATS);
+  const statsRef = collection(getDBInstance(), COLLECTIONS.WALLPAPER_STATS);
   const q = query(
     statsRef,
     orderBy(sortBy, "desc"),
@@ -905,7 +905,7 @@ export const getPopularWallpapers = async (
 export const getRecentWallpapers = async (
   limitCount: number = 20
 ): Promise<WallpaperMetadata[]> => {
-  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
+  const wallpapersRef = collection(getDBInstance(), COLLECTIONS.WALLPAPERS);
   const q = query(
     wallpapersRef,
     orderBy("createdAt", "desc"),
@@ -982,13 +982,13 @@ export const batchGetWallpaperStats = async (
  * Delete wallpaper and all related data
  */
 export const deleteWallpaper = async (wallpaperId: string): Promise<void> => {
-  const batch = writeBatch(db);
+  const batch = writeBatch(getDBInstance());
 
   // Delete wallpaper metadata
-  batch.delete(doc(db, COLLECTIONS.WALLPAPERS, wallpaperId));
+  batch.delete(doc(getDBInstance(), COLLECTIONS.WALLPAPERS, wallpaperId));
 
   // Delete stats
-  batch.delete(doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId));
+  batch.delete(doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId));
 
   await batch.commit();
 

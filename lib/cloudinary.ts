@@ -115,9 +115,6 @@ export const compressImage = async (
 
   try {
     const compressedFile = await imageCompression(file, compressionOptions);
-    console.log(
-      `[Image Compression] Original: ${(file.size / 1024).toFixed(2)}KB → Compressed: ${(compressedFile.size / 1024).toFixed(2)}KB`
-    );
     return compressedFile;
   } catch (error) {
     console.error("[Image Compression] Failed:", error);
@@ -258,8 +255,6 @@ export const uploadToCloudinary = async (
 
     const data = await response.json();
 
-    console.log("[Cloudinary Upload] Success:", data.secure_url);
-
     return {
       secureUrl: data.secure_url,
       publicId: data.public_id,
@@ -344,10 +339,6 @@ export const uploadAvatar = async (
  * Use Cloudinary's auto-delete or webhook-based cleanup.
  */
 export const deleteFromCloudinary = async (publicId: string): Promise<boolean> => {
-  // This would require a server-side API route with Cloudinary API key
-  // For now, we'll just log the intent
-  console.log("[Cloudinary] Delete requested for:", publicId);
-  console.log("[Cloudinary] Note: Auto-deletion requires server-side implementation");
   return false;
 };
 

@@ -1,7 +1,4 @@
-import {
-  auth,
-  db
-} from "./firebase";
+import { getAuth, getDB as getDB } from "./firebase";
 
 import {
   signInWithEmailAndPassword,
@@ -147,7 +144,7 @@ export const signInWithEmail = async (
 
     const userCredential =
       await signInWithEmailAndPassword(
-        auth,
+        getAuth(),
         cleanEmail,
         password
       );
@@ -196,7 +193,7 @@ export const signUpWithEmail = async (
 
     const userCredential =
       await createUserWithEmailAndPassword(
-        auth,
+        getAuth(),
         cleanEmail,
         password
       );
@@ -232,7 +229,7 @@ export const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
 
     const userCredential =
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(getAuth(), provider);
 
     const user = userCredential.user;
 
@@ -257,7 +254,7 @@ export const signInWithGitHub = async () => {
     const provider = new GithubAuthProvider();
 
     const userCredential =
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(getAuth(), provider);
 
     const user = userCredential.user;
 
@@ -279,7 +276,7 @@ export const signInWithGitHub = async () => {
 
 export const signOut = async () => {
   try {
-    await firebaseSignOut(auth);
+    await firebaseSignOut(getAuth());
     return { error: null };
   } catch {
     return { error: "Failed to sign out." };
@@ -292,7 +289,7 @@ export const signOut = async () => {
 
 export const resetPassword = async (email: string) => {
   try {
-    await sendPasswordResetEmail(auth, sanitizeEmail(email));
+    await sendPasswordResetEmail(getAuth(), sanitizeEmail(email));
     return { error: null };
   } catch (error: any) {
     return {
@@ -368,7 +365,7 @@ const upsertUserDocument = async (user: User) => {
 };
 
 const updateUserLastLogin = async (uid: string) => {
-  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  const userRef = doc(getDB(), COLLECTIONS.USERS, uid);
   await updateDoc(userRef, {
     lastLogin: serverTimestamp(),
   });
@@ -378,7 +375,7 @@ export const updateUserFirestoreProfile = async (
   uid: string,
   data: { displayName?: string; photoURL?: string }
 ) => {
-  const userRef = doc(db, COLLECTIONS.USERS, uid);
+  const userRef = doc(getDB(), COLLECTIONS.USERS, uid);
   const updateData: Record<string, unknown> = { updatedAt: serverTimestamp() };
 
   if (data.displayName !== undefined) {

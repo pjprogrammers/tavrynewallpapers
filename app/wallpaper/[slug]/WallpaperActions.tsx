@@ -93,17 +93,23 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
   const handleDownload = async (resolution: string = wallpaper.resolution || "Original", deviceType: "monitor" | "laptop" | "smartphone" | "original" = "original") => {
     const fileName = `${wallpaper.title.replace(/\s+/g, '_')}_${resolution}.jpg`;
 
-    // Record download to Firestore (with rate limiting)
-    const success = await recordAndDownload(resolution, deviceType);
+    // Record download to Firestore - works for all users (auth or anonymous)
+    // Pass user.uid only if logged in, otherwise it's undefined
+    const userId = user?.uid;
 
-    if (downloadError) {
-      setRateLimitError(downloadError);
-      setTimeout(() => setRateLimitError(null), 5000);
-      return;
-    }
-
-    if (success) {
-      console.log(`[Download] Recorded: ${wallpaper.id} at ${resolution}`);
+    try {
+      // Use direct Firestore call for anonymous downloads
+      const { recordDownload } = await import("@/lib/firestore");
+      await recordDownload({
+        userId: userId || undefined,
+        wallpaperId: wallpaper.id,
+        wallpaperSlug: wallpaper.slug,
+        resolution,
+        deviceType,
+      });
+    } catch (error) {
+      console.error("[Download] Failed to record:", error);
+      // Continue with download even if recording fails
     }
 
     downloadImage(`/wallpapers/${wallpaper.filename}`, fileName);

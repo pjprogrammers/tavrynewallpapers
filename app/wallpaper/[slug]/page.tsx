@@ -10,45 +10,140 @@ import WallpaperActions from "./WallpaperActions";
 import WallpaperImageLoading from "./WallpaperImageLoading";
 import WallpaperStats from "./WallpaperStats";
 import WallpaperInfoCard from "./WallpaperInfoCard";
-import { 
-  getWallpaperBySlug, 
-  getCategoryById, 
+import {
+  getWallpaperBySlug,
+  getCategoryById,
   getWallpapersByCategory,
   getTagById,
   getTrendingWallpapers,
 } from "../../lib/wallpapers";
 import { Info, Tag, Eye, Clock, Download, Heart } from "lucide-react";
 
-// Helper function to ensure consistent number formatting
-const formatNumber = (num: number): string => {
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-};
+const SITE_URL = 'https://tavrynewallpapers.vercel.app';
+const SITE_NAME = 'Tavryne Wallpapers';
 
 interface WallpaperPageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Generate dynamic metadata for wallpaper pages
 export async function generateMetadata({ params }: WallpaperPageProps): Promise<Metadata> {
   const { slug } = await params;
   const wallpaper = getWallpaperBySlug(slug);
-  
+
   if (!wallpaper) {
     return {
-      title: "Wallpaper Not Found | Tavryne Wallpapers"
+      title: "Wallpaper Not Found | Tavryne Wallpapers",
+      robots: { index: false, follow: false },
     };
   }
-  
+
+  const category = getCategoryById(wallpaper.categoryId);
+  const tags = wallpaper.tags.map(tagId => getTagById(tagId)).filter(Boolean).map(t => t?.name).join(', ');
+  const resolution = wallpaper.resolution || '4K';
+
+  const title = `${wallpaper.title} ${resolution} Wallpaper — Tavryne Wallpapers`;
+  const description = `Download ${wallpaper.title} wallpaper in ${resolution} resolution. ${category ? `${category.name} category. ` : ''}${tags ? `Tags: ${tags}. ` : ''}Free high-quality wallpapers on Tavryne Wallpapers.`;
+
+  const imageUrl = `${SITE_URL}/wallpapers/${wallpaper.filename}`;
+  const canonicalUrl = `${SITE_URL}/wallpaper/${wallpaper.slug}`;
+
   return {
-    title: `${wallpaper.title} | Tavryne Wallpapers`,
-    description: wallpaper.description || `Download ${wallpaper.title} wallpaper in high quality resolution.`,
+    title,
+    description,
+    keywords: [
+      wallpaper.title,
+      ...wallpaper.tags,
+      category?.name || '',
+      'wallpaper',
+      'download wallpaper',
+      '4K wallpaper',
+      'HD wallpaper',
+      SITE_NAME,
+    ].filter(Boolean),
+
+    authors: [{ name: SITE_NAME }],
+    creator: SITE_NAME,
+    publisher: SITE_NAME,
+
+    alternates: {
+      canonical: canonicalUrl,
+    },
+
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+      },
+    },
+
     openGraph: {
-      images: [{
-        url: `/wallpapers/${wallpaper.filename}`,
-        width: 1200,
-        height: 630,
-        alt: wallpaper.title
-      }]
-    }
+      type: 'website',
+      locale: 'en_US',
+      url: canonicalUrl,
+      siteName: SITE_NAME,
+      title,
+      description,
+      images: [
+        {
+          url: imageUrl,
+          width: 1920,
+          height: 1080,
+          alt: `${wallpaper.title} - ${resolution} Wallpaper`,
+        },
+      ],
+    },
+
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
+
+// Generate JSON-LD structured data for wallpaper page
+export async function generateJsonLd({ params }: WallpaperPageProps) {
+  const { slug } = await params;
+  const wallpaper = getWallpaperBySlug(slug);
+
+  if (!wallpaper) return null;
+
+  const category = getCategoryById(wallpaper.categoryId);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ImageObject',
+    name: wallpaper.title,
+    description: wallpaper.description || `High quality ${wallpaper.title} wallpaper`,
+    image: `${SITE_URL}/wallpapers/${wallpaper.filename}`,
+    contentUrl: `${SITE_URL}/wallpapers/${wallpaper.filename}`,
+    width: wallpaper.resolution ? parseInt(wallpaper.resolution.split('x')[0]) : 3840,
+    height: wallpaper.resolution ? parseInt(wallpaper.resolution.split('x')[1]) : 2160,
+    encoding: {
+      '@type': 'MediaObject',
+      contentSize: '10MB',
+      encodingFormat: 'image/jpeg',
+    },
+    uploadDate: wallpaper.uploadDate,
+    producer: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+    primaryImageOfPage: {
+      '@type': 'ImageObject',
+      url: `${SITE_URL}/wallpapers/${wallpaper.filename}`,
+    },
+    mainEntity: {
+      '@type': 'WebPage',
+      name: wallpaper.title,
+      url: `${SITE_URL}/wallpaper/${wallpaper.slug}`,
+    },
   };
 }
 
@@ -56,30 +151,40 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
   const { slug } = await params;
   const wallpaper = getWallpaperBySlug(slug);
   if (!wallpaper) return notFound();
-  
+
   const category = getCategoryById(wallpaper.categoryId);
-  
+
   // Get both related and trending wallpapers
   const relatedWallpapers = getWallpapersByCategory(wallpaper.categoryId)
     .filter(w => w.id !== wallpaper.id)
     .slice(0, 3);
-  
+
   const trendingWallpapers = getTrendingWallpapers()
     .filter(w => w.id !== wallpaper.id && !relatedWallpapers.some(r => r.id === w.id))
     .slice(0, 3);
-    
+
   // Combine both for "You might also like" section
   const recommendedWallpapers = [...relatedWallpapers, ...trendingWallpapers].slice(0, 4);
-  
+
   // Generate download options
   const downloadOptions = [
     { name: "Original", resolution: wallpaper.resolution || "3840x2160", device: "Monitor", icon: "Monitor" },
     { name: "Desktop", resolution: "1920x1080", device: "Laptop", icon: "Laptop" },
     { name: "Mobile", resolution: "1080x1920", device: "Smartphone", icon: "Smartphone" },
   ];
-  
+
+  // Generate JSON-LD schema
+  const jsonLd = generateJsonLd({ params });
+
   return (
-    <div className="page-wrapper">
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <div className="page-wrapper">
       <Header />
       
       {/* Wallpaper Hero Section */}
@@ -165,8 +270,8 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
                     const tag = getTagById(tagId);
                     return tag ? (
                       <Link
-                        key={tag.id}
-                        href={`/tag/${tag.id}`}
+                        key={`${tagId}-${index}`}
+                        href={`/tag/${tagId}`}
                         className="tag-pill animate-fade-in"
                         style={{animationDelay: `${0.1 * index + 0.6}s`}}
                       >
@@ -186,12 +291,12 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
               <h3 className="tags-title">Tags</h3>
             </div>
             <div className="tags-grid">
-              {wallpaper.tags.map(tagId => {
+              {wallpaper.tags.map((tagId, index) => {
                 const tag = getTagById(tagId);
                 return tag ? (
                   <Link
-                    key={tag.id}
-                    href={`/tag/${tag.id}`}
+                    key={`mobile-${tagId}-${index}`}
+                    href={`/tag/${tagId}`}
                     className="tag-pill"
                   >
                     {tag.name}
@@ -220,5 +325,6 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
       
       <Footer />
     </div>
+    </>
   );
 } 

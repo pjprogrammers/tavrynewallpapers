@@ -25,9 +25,16 @@ export const FavoritesContent = () => {
 
   if (authLoading || favoritesLoading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <p>Loading favorites...</p>
+      <div className="favorites-page" style={{ minHeight: "60vh" }}>
+        <div className="page-header">
+          <h1>Your Favorites</h1>
+          <p>Loading...</p>
+        </div>
+        <div className="cards-grid-skeleton">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass-card-skeleton" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -71,11 +78,12 @@ export const FavoritesContent = () => {
       </div>
 
       <div className="cards-grid">
-        {favorites.map((favorite) => (
+        {favorites.map((favorite, index) => (
           <FavoriteCard
             key={favorite.id}
             favorite={favorite}
             onRemove={handleRemove}
+            priority={index < 4}
           />
         ))}
       </div>
@@ -86,9 +94,10 @@ export const FavoritesContent = () => {
 interface FavoriteCardProps {
   favorite: Favorite;
   onRemove: (e: React.MouseEvent, favorite: Favorite) => void;
+  priority?: boolean;
 }
 
-const FavoriteCard = ({ favorite, onRemove }: FavoriteCardProps) => {
+const FavoriteCard = ({ favorite, onRemove, priority = false }: FavoriteCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const createdAt = favorite.createdAt;
@@ -119,7 +128,7 @@ const FavoriteCard = ({ favorite, onRemove }: FavoriteCardProps) => {
             fill
             className={`glass-card-img ${isHovered ? "blurred" : ""}`}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            unoptimized
+            priority={priority}
           />
         </div>
 

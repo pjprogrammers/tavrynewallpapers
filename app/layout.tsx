@@ -2,6 +2,7 @@ import './styles.css';
 import { Inter, Montserrat, Poppins } from 'next/font/google';
 import type { Metadata, Viewport } from 'next';
 import { AuthProvider } from '@/lib/auth-context';
+import { categories, getAllWallpapers, getFeaturedWallpapers } from './lib/wallpapers';
 
 // ----------------------
 // Fonts Setup
@@ -27,6 +28,14 @@ const poppins = Poppins({
 });
 
 // ----------------------
+// Configuration
+// ----------------------
+const SITE_URL = 'https://tavrynewallpapers.vercel.app';
+const SITE_NAME = 'Tavryne Wallpapers';
+const SITE_DESCRIPTION = 'Discover and download stunning high-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers. Free wallpapers for desktop and mobile.';
+const OG_IMAGE = `${SITE_URL}/og-image.png`;
+
+// ----------------------
 // Viewport
 // ----------------------
 export const viewport: Viewport = {
@@ -36,37 +45,42 @@ export const viewport: Viewport = {
 };
 
 // ----------------------
-// Metadata (SEO + Social Sharing)
+// Global Metadata (SEO + Social Sharing)
 // ----------------------
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tavrynewallpapers.vercel.app'),
+  metadataBase: new URL(SITE_URL),
+
+  applicationName: SITE_NAME,
 
   title: {
-    default: 'Tavryne Wallpapers | Premium HD & 4K Wallpapers',
+    default: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
     template: '%s | Tavryne Wallpapers',
   },
 
-  description:
-    'Discover and download stunning high-quality wallpapers for your desktop, mobile, and tablet. Free HD, 4K, and 8K wallpapers for all your devices.',
+  description: SITE_DESCRIPTION,
 
   keywords: [
+    'Tavryne Wallpapers',
     'wallpapers',
-    'HD wallpapers',
     '4K wallpapers',
     '8K wallpapers',
+    'HD wallpapers',
+    'anime wallpapers',
+    'gaming wallpapers',
+    'cyberpunk wallpapers',
+    'aesthetic wallpapers',
     'desktop wallpapers',
     'mobile wallpapers',
     'free wallpapers',
     'download wallpapers',
+    'high resolution wallpapers',
+    'premium wallpapers',
   ],
 
-  authors: [{ name: 'Tavryne Wallpapers' }],
-  creator: 'Tavryne Wallpapers',
-  publisher: 'Tavryne Wallpapers',
-
-  alternates: {
-    canonical: 'https://tavrynewallpapers.vercel.app/',
-  },
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: 'technology',
 
   robots: {
     index: true,
@@ -74,38 +88,144 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+
+  alternates: {
+    canonical: SITE_URL,
+    languages: {
+      'en': SITE_URL,
     },
   },
 
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://tavrynewallpapers.vercel.app/',
-    siteName: 'Tavryne Wallpapers',
+    url: SITE_URL,
+    siteName: SITE_NAME,
 
-    title: 'Tavryne Wallpapers | Premium HD & 4K Wallpapers',
-    description:
-      'Discover and download stunning high-quality wallpapers for your desktop, mobile, and tablet.',
+    title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
+    description: SITE_DESCRIPTION,
 
     images: [
       {
-        url: 'https://tavrynewallpapers.vercel.app/og-image.png',
+        url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: 'Tavryne Wallpapers Preview Image',
+        alt: 'Tavryne Wallpapers - Premium HD & 4K Wallpapers',
       },
     ],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'Tavryne Wallpapers | Premium HD & 4K Wallpapers',
-    description:
-      'Discover and download stunning high-quality wallpapers for your desktop, mobile, and tablet.',
-
-    images: ['https://tavrynewallpapers.vercel.app/og-image.png'],
+    title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
+    description: SITE_DESCRIPTION,
+    creator: '@tavrynewallpapers',
+    site: '@tavrynewallpapers',
+    images: [OG_IMAGE],
   },
 };
+
+// ----------------------
+// JSON-LD Structured Data
+// ----------------------
+export function generateWebSiteSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE_NAME,
+    url: SITE_URL,
+    description: SITE_DESCRIPTION,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+  };
+}
+
+export function generateOrganizationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
+    description: SITE_DESCRIPTION,
+    sameAs: [
+      'https://twitter.com/tavrynewallpapers',
+      'https://instagram.com/tavrynewallpapers',
+      'https://github.com/tavryne',
+    ],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer service',
+      email: 'contact@tavrynewallpapers.vercel.app',
+      availableLanguage: 'English',
+    },
+    areaServed: {
+      '@type': 'Place',
+      '@id': 'https://en.wikipedia.org/wiki/Internet',
+    },
+    serviceType: 'Wallpaper Download Service',
+  };
+}
+
+export function generateBreadcrumbSchema(items: Array<{ name: string; url: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+}
+
+export function generateFAQSchema(faqs: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map(faq => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer,
+      },
+    })),
+  };
+}
+
+export function generateCollectionPageSchema(name: string, description: string, url: string, itemCount?: number) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name,
+    description,
+    url,
+    ...(itemCount && { numberOfItems: itemCount }),
+    publisher: {
+      '@type': 'Organization',
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+  };
+}
 
 // ----------------------
 // Root Layout

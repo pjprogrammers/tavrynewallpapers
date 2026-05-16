@@ -14,7 +14,7 @@ import {
   signInWithGitHub,
 } from "@/lib/auth";
 
-import { auth } from "@/lib/firebase";
+import { getAuth } from "@/lib/firebase";
 
 import { sendPasswordResetEmail } from "firebase/auth";
 
@@ -107,7 +107,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(getAuth(), email);
 
       setResetMessage(
         "Password reset email sent! Check your inbox."

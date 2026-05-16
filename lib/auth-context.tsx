@@ -9,7 +9,7 @@ import {
 
 import { onAuthStateChanged, type User } from "firebase/auth";
 
-import { auth } from "./firebase";
+import { getAuth } from "./firebase";
 
 /**
  * Auth context type
@@ -49,19 +49,26 @@ export const AuthProvider = ({
    * Listen for authentication state changes
    */
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (currentUser) => {
-        setUser(currentUser);
+    try {
+      const authInstance = getAuth();
+      const unsubscribe = onAuthStateChanged(
+        authInstance,
+        (currentUser) => {
+          setUser(currentUser);
 
-        setLoading(false);
-      }
-    );
+          setLoading(false);
+        }
+      );
 
-    /**
-     * Cleanup listener
-     */
-    return () => unsubscribe();
+      /**
+       * Cleanup listener
+       */
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("[AuthContext] Firebase not initialized:", error);
+      setLoading(false);
+      return;
+    }
   }, []);
 
   /**

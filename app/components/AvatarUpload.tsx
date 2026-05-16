@@ -37,16 +37,16 @@ const SIZE_CLASSES = {
   large: "avatar-upload-large",
 };
 
-// GitHub-style preset avatars
+// GitHub-style preset avatars (local assets)
 const PRESET_AVATARS = [
-  { seed: "Adventurous", color: "#22c55e" },
-  { seed: "Creative", color: "#3b82f6" },
-  { seed: "Dreamy", color: "#8b5cf6" },
-  { seed: "Energetic", color: "#f59e0b" },
-  { seed: "Friendly", color: "#ec4899" },
-  { seed: "Gentle", color: "#06b6d4" },
-  { seed: "Happy", color: "#10b981" },
-  { seed: "Idealistic", color: "#6366f1" },
+  { seed: "Adventurous", color: "#22c55e", src: "/avatars_preset/aiden.svg" },
+  { seed: "Creative", color: "#3b82f6", src: "/avatars_preset/brian.svg" },
+  { seed: "Dreamy", color: "#8b5cf6", src: "/avatars_preset/girl.svg" },
+  { seed: "Energetic", color: "#f59e0b", src: "/avatars_preset/oliver.svg" },
+  { seed: "Friendly", color: "#ec4899", src: "/avatars_preset/sara.svg" },
+  { seed: "Gentle", color: "#06b6d4", src: "/avatars_preset/robo.svg" },
+  { seed: "Happy", color: "#10b981", src: "/avatars_preset/memo_4.png" },
+  { seed: "Idealistic", color: "#6366f1", src: "/avatars_preset/3d_4.png" },
 ];
 
 type TabType = "upload" | "choose" | "url";
@@ -98,6 +98,7 @@ export const AvatarUpload = ({
   const [urlInput, setUrlInput] = useState("");
   const [urlPreview, setUrlPreview] = useState<string | null>(null);
   const [urlError, setUrlError] = useState(false);
+  const [urlProcessing, setUrlProcessing] = useState(false);
 
   // Drag and drop states
   const [isDragging, setIsDragging] = useState(false);
@@ -185,30 +186,57 @@ export const AvatarUpload = ({
   );
 
   const handleUrlSubmit = async () => {
-    if (!user || !urlInput.trim()) return;
+    if (!user) {
+      return;
+    }
+
+    if (!urlInput.trim()) {
+      return;
+    }
 
     setIsUploading(true);
     setError(null);
+    setUrlProcessing(true);
 
     try {
       if (!urlInput.match(/^https?:\/\/.+/i)) {
         throw new Error("Please enter a valid URL starting with http:// or https://");
       }
 
-      await updateUserPhotoURL(user, urlInput.trim());
+      // Rehost external URL through Cloudinary first
+      const response = await fetch("/api/reupload-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: urlInput.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success || !data.imageUrl) {
+        throw new Error(data.error || "Failed to process image URL");
+      }
+
+      // Save the Cloudinary URL (not the original external URL)
+      const cloudinaryUrl = data.imageUrl;
+
+      // Show Cloudinary preview BEFORE saving (CSP allows this)
+      setUrlPreview(cloudinaryUrl);
+
+      // Then save to user profile
+      await updateUserPhotoURL(user, cloudinaryUrl);
 
       if (onUploadSuccess) {
-        onUploadSuccess(urlInput.trim());
+        onUploadSuccess(cloudinaryUrl);
       }
 
       setShowModal(false);
       setUrlInput("");
-      setUrlPreview(null);
     } catch (err) {
       console.error("[AvatarUpload] URL failed:", err);
-      setError(err instanceof Error ? err.message : "Failed to save URL");
+      setError(err instanceof Error ? err.message : "Failed to process and save URL");
     } finally {
       setIsUploading(false);
+      setUrlProcessing(false);
     }
   };
 
@@ -219,7 +247,8 @@ export const AvatarUpload = ({
     setError(null);
 
     try {
-      const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(seed)}`;
+      const preset = PRESET_AVATARS.find(p => p.seed === seed);
+      const avatarUrl = preset?.src || `/avatars_preset/aiden.svg`;
       await updateUserPhotoURL(user, avatarUrl);
 
       if (onUploadSuccess) {
@@ -237,8 +266,9 @@ export const AvatarUpload = ({
 
   const handleUrlPreview = (url: string) => {
     setUrlInput(url);
+    // Never render external URL directly - only show after rehosting
     if (url.match(/^https?:\/\/.+/i)) {
-      setUrlPreview(url);
+      setUrlPreview(null); // Clear any previous preview
       setUrlError(false);
     } else {
       setUrlPreview(null);
@@ -352,7 +382,7 @@ export const AvatarUpload = ({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
                     onChange={handleFileSelect}
                     className="gh-hidden-input"
                   />
@@ -399,7 +429,7 @@ export const AvatarUpload = ({
                       disabled={isUploading}
                     >
                       <Image
-                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(avatar.seed)}`}
+                        src={avatar.src}
                         alt={avatar.seed}
                         width={48}
                         height={48}
@@ -430,7 +460,21 @@ export const AvatarUpload = ({
                     />
                   </div>
 
-                  {urlPreview && !urlError && (
+                  {/* Processing indicator - never render external URL directly */}
+                  {urlProcessing && (
+                    <div className="gh-url-preview">
+                      <span className="gh-url-preview-label">Processing...</span>
+                      <div className="gh-url-preview-img flex items-center justify-center">
+                        <Loader2 size={24} className="animate-spin text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Downloading and rehosting image to Cloudinary...
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Cloudinary preview - only show AFTER rehosting completes */}
+                  {!urlProcessing && urlPreview && !urlError && (
                     <div className="gh-url-preview">
                       <span className="gh-url-preview-label">Preview</span>
                       <div className="gh-url-preview-img">
