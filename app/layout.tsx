@@ -58,6 +58,9 @@ export const metadata: Metadata = {
   },
 
   description: SITE_DESCRIPTION,
+  verification: {
+  google: 'yD0EuT3GHCroc_8sUd70Nt-puSwrlKEdsar7YRDcx_M',
+},
 
   keywords: [
     'Tavryne Wallpapers',
