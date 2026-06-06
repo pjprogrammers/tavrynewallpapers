@@ -42,7 +42,7 @@ const LOGO_URL = `${SITE_URL}/icon-192.svg`;
 
 // Bump this whenever the icon set changes so browsers / link-preview bots
 // are forced to re-fetch instead of reusing the cached older icon.
-const ICON_VERSION = "v3";
+const ICON_VERSION = "v4";
 
 // ----------------------
 // Viewport
@@ -148,19 +148,19 @@ export const metadata: Metadata = {
     images: [OG_IMAGE],
   },
 
+  // The .ico is auto-injected by Next.js from `app/favicon.ico` (served
+  // at /favicon.ico). We only declare the SVG + PNG fallbacks + apple
+  // touch icon explicitly here.
   icons: {
     icon: [
       // Modern browsers (Chrome, Firefox, Edge, Safari) prefer SVG.
       { url: `/icon-192.svg?${ICON_VERSION}`, type: 'image/svg+xml', sizes: 'any' },
-      // Multi-resolution .ico for legacy browsers + Bing/Google SERPs.
-      { url: `/favicon.ico?${ICON_VERSION}`, sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
       // Raster fallbacks for clients that don't read SVG icons.
       { url: `/icon-32.png?${ICON_VERSION}`, sizes: '32x32', type: 'image/png' },
       { url: `/icon-48.png?${ICON_VERSION}`, sizes: '48x48', type: 'image/png' },
       { url: `/icon-96.png?${ICON_VERSION}`, sizes: '96x96', type: 'image/png' },
       { url: `/icon-192.png?${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
     ],
-    shortcut: `/favicon.ico?${ICON_VERSION}`,
     apple: [
       { url: `/icon-180.png?${ICON_VERSION}`, sizes: '180x180', type: 'image/png' },
       { url: `/icon-192.png?${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },

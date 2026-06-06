@@ -23,6 +23,7 @@ import sharp from "sharp";
 
 const ROOT = resolve(process.cwd());
 const PUBLIC_DIR = join(ROOT, "public");
+const APP_DIR = join(ROOT, "app");
 const SVG_PATH = join(PUBLIC_DIR, "icon-192.svg");
 
 // Sizes to emit. Picked to cover every common platform hint:
@@ -63,9 +64,11 @@ async function main() {
   }
 
   // Build a multi-resolution .ico (16 + 32 + 48) from the PNG buffers.
+  // Output goes to `app/favicon.ico` (Next.js file convention) so the
+  // framework serves it at /favicon.ico with its own cache header.
   const icoBuffers: Buffer[] = ICO_SIZES.map((s) => pngs[s]);
   const ico = buildIco(icoBuffers, ICO_SIZES);
-  const icoPath = join(PUBLIC_DIR, "favicon.ico");
+  const icoPath = join(APP_DIR, "favicon.ico");
   writeFileSync(icoPath, ico);
   console.log(
     `\n  ✓ ${icoPath.replace(ROOT + "\\", "")}  ${ico.length.toString().padStart(6)} bytes  (${ICO_SIZES.join("+")})`

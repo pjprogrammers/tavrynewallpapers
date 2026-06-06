@@ -95,12 +95,12 @@ const nextConfig: NextConfig = {
         ],
       },
 
-      // Short-cache + must-revalidate for all favicon / app-icon assets.
-      // Forces Vercel's edge cache and browsers to re-check the icon on
-      // every visit so a fresh deployment is never masked by a stale
-      // CDN copy (favicons are otherwise cached for weeks).
+      // Short-cache + must-revalidate for the public/ icon assets.
+      // /favicon.ico is served from the app/ folder via the Next.js
+      // convention and gets its own long-lived cache header, so it is
+      // intentionally excluded from this rule.
       {
-        source: "/:path(favicon\\.ico|icon-.*\\.(?:png|svg)|apple-touch-icon.*|android-chrome.*)",
+        source: "/:path(icon-.*\\.(?:png|svg)|apple-touch-icon.*|android-chrome.*)",
         headers: [
           {
             key: "Cache-Control",
