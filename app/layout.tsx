@@ -40,6 +40,10 @@ const SITE_SHORT_DESCRIPTION =
 const OG_IMAGE = `${SITE_URL}/og-image.png`;
 const LOGO_URL = `${SITE_URL}/icon-192.svg`;
 
+// Bump this whenever the icon set changes so browsers / link-preview bots
+// are forced to re-fetch instead of reusing the cached older icon.
+const ICON_VERSION = "v2";
+
 // ----------------------
 // Viewport
 // ----------------------
@@ -147,19 +151,19 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       // Modern browsers (Chrome, Firefox, Edge, Safari) prefer SVG.
-      { url: '/icon-192.svg', type: 'image/svg+xml', sizes: 'any' },
+      { url: `/icon-192.svg?${ICON_VERSION}`, type: 'image/svg+xml', sizes: 'any' },
       // Multi-resolution .ico for legacy browsers + Bing/Google SERPs.
-      { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
+      { url: `/favicon.ico?${ICON_VERSION}`, sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
       // Raster fallbacks for clients that don't read SVG icons.
-      { url: '/icon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icon-48.png', sizes: '48x48', type: 'image/png' },
-      { url: '/icon-96.png', sizes: '96x96', type: 'image/png' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: `/icon-32.png?${ICON_VERSION}`, sizes: '32x32', type: 'image/png' },
+      { url: `/icon-48.png?${ICON_VERSION}`, sizes: '48x48', type: 'image/png' },
+      { url: `/icon-96.png?${ICON_VERSION}`, sizes: '96x96', type: 'image/png' },
+      { url: `/icon-192.png?${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
     ],
-    shortcut: '/favicon.ico',
+    shortcut: `/favicon.ico?${ICON_VERSION}`,
     apple: [
-      { url: '/icon-180.png', sizes: '180x180', type: 'image/png' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: `/icon-180.png?${ICON_VERSION}`, sizes: '180x180', type: 'image/png' },
+      { url: `/icon-192.png?${ICON_VERSION}`, sizes: '192x192', type: 'image/png' },
     ],
   },
 
@@ -175,7 +179,7 @@ export const metadata: Metadata = {
     'color-scheme': 'dark',
     // Windows tile (used by Bing and Windows Start menu)
     'msapplication-TileColor': '#0a0a0a',
-    'msapplication-TileImage': `${SITE_URL}/icon-256.png`,
+    'msapplication-TileImage': `${SITE_URL}/icon-256.png?${ICON_VERSION}`,
     'msapplication-config': '/site.webmanifest',
     'twitter:label1': 'Wallpaper count',
     'twitter:data1': `${getAllWallpapers().length}+`,
