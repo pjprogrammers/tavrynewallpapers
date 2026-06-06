@@ -1,6 +1,7 @@
 /**
- * Next.js Middleware for Route Protection and Security
- * Protects authenticated routes and implements security headers
+ * Next.js Proxy (formerly Middleware) for Route Protection and Security
+ * Applies security headers, CSP, and basic request filtering to all routes.
+ * Note: in Next.js 16+, `middleware.ts` is deprecated; the new name is `proxy.ts`.
  */
 
 import { NextResponse } from 'next/server';
@@ -58,6 +59,89 @@ const SECURITY_HEADERS = {
 };
 
 /**
+ * Content-Security-Policy directives.
+ *
+ * Every origin listed here is one the app actually talks to. Do not add a
+ * domain speculatively. If a feature breaks because of CSP, add the missing
+ * origin (or directive) here, not via an inline override.
+ *
+ * Why each directive exists
+ * -------------------------
+ * default-src 'self'
+ *   Fallback for every fetch directive that is not explicitly set.
+ *
+ * script-src 'self' 'unsafe-eval' 'unsafe-inline' apis.google.com accounts.google.com
+ *              www.google.com gstatic.com
+ *   - 'self' / 'unsafe-inline' / 'unsafe-eval' : required by Next.js for
+ *     hydration scripts, JSON-LD inline scripts, and HMR / libs that use
+ *     `new Function()` (e.g. browser-image-compression).
+ *   - apis.google.com   : gapi loader pulled in by Firebase Auth
+ *     (`signInWithPopup`/`signInWithRedirect`).
+ *   - accounts.google.com : Google Identity Services script for OAuth flows.
+ *   - www.google.com    : reCAPTCHA Enterprise loader
+ *     (https://www.google.com/recaptcha/enterprise.js).
+ *   - gstatic.com       : reCAPTCHA assets & challenge iframe bootstrapper.
+ *
+ * style-src 'self' 'unsafe-inline'
+ *   Next.js injects inline styles for hydration and CSS-in-JS.
+ *
+ * img-src 'self' data: blob: res.cloudinary.com gstatic.com lh3.googleusercontent.com
+ *   - res.cloudinary.com  : wallpaper and avatar CDN.
+ *   - gstatic.com         : reCAPTCHA sprite images.
+ *   - lh3.googleusercontent.com : Google OAuth user avatars
+ *     (`user.photoURL` after Google sign-in). Declared in `next.config.ts`
+ *     `remotePatterns` too, but CSP must allow it independently.
+ *   - data: / blob:       : local image previews and canvas exports.
+ *
+ * font-src 'self' fonts.gstatic.com data:
+ *   'next/font/google' self-hosts fonts at build time, so fonts.gstatic.com
+ *   is only a safety net.
+ *
+ * connect-src 'self' *.firebaseio.com *.googleapis.com firestore.googleapis.com
+ *               identitytoolkit.googleapis.com securetoken.googleapis.com
+ *               api.cloudinary.com res.cloudinary.com accounts.google.com
+ *               www.google.com
+ *   - Firestore WebChannel (HTTPS streaming; no WebSockets required).
+ *   - Firebase Auth (identitytoolkit + securetoken).
+ *   - Cloudinary upload (api.cloudinary.com) and CDN reads.
+ *   - Google OAuth token exchange (accounts.google.com).
+ *   - reCAPTCHA token exchange (www.google.com).
+ *
+ * frame-src 'self' accounts.google.com *.firebaseapp.com www.google.com gstatic.com
+ *   - *.firebaseapp.com  : Firebase Auth's hidden iframe
+ *     (https://<authDomain>/__/auth/iframe).
+ *   - accounts.google.com : Google OAuth popup.
+ *   - www.google.com / gstatic.com : reCAPTCHA challenge iframes.
+ *
+ * worker-src 'self' blob:
+ *   browser-image-compression creates a Blob-URL Worker for image
+ *   resizing. Without `blob:` the worker is blocked and avatar/wallpaper
+ *   uploads silently fail in production.
+ *
+ * manifest-src 'self'
+ *   site.webmanifest is served from the same origin.
+ *
+ * object-src 'none', base-uri 'self', form-action 'self', frame-ancestors 'none'
+ *   Standard hardening: blocks <object>/<embed>, prevents <base> hijacks,
+ *   forbids form submissions to cross-origin targets, and stops clickjacking.
+ */
+const CSP_DIRECTIVES: readonly string[] = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://accounts.google.com https://www.google.com https://www.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://www.gstatic.com https://lh3.googleusercontent.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.cloudinary.com https://res.cloudinary.com https://accounts.google.com https://www.google.com",
+  "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com https://www.google.com https://www.gstatic.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+];
+
+/**
  * Check if route requires authentication
  */
 const isProtectedRoute = (pathname: string): boolean => {
@@ -104,7 +188,8 @@ const hasAuthToken = (request: NextRequest): boolean => {
   return false;
 };
 
-export function middleware(request: NextRequest) {
+// Renamed from `middleware` to `proxy` per Next.js 16 conventions.
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /**
@@ -129,25 +214,11 @@ export function middleware(request: NextRequest) {
   });
 
   /**
-   * Add Content-Security-Policy header
-   * Restricts sources to prevent XSS and injection attacks
+   * Add Content-Security-Policy header. Restricts sources to prevent XSS
+   * and injection attacks while keeping every external service the app
+   * actually uses reachable.
    */
-  const cspDirectives = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com", // Firebase Auth requires Google APIs
-    "style-src 'self' 'unsafe-inline'", // Required for Next.js
-    "img-src 'self' data: blob: https://res.cloudinary.com",
-    "font-src 'self'",
-    // Firebase Auth explicitly (identitytoolkit + securetoken)
-    "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.cloudinary.com https://res.cloudinary.com https://accounts.google.com",
-    "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com", // Google OAuth popup + Firebase iframe helpers
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-  ].join('; ');
-
-  response.headers.set('Content-Security-Policy', cspDirectives);
+  response.headers.set('Content-Security-Policy', CSP_DIRECTIVES.join('; '));
 
   /**
    * Handle protected routes

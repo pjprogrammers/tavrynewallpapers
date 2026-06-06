@@ -24,38 +24,40 @@ export default function SearchContent() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 pt-20">
+      <main className="flex-1 pt-20" role="main" id="main-content">
         <div className="container mx-auto px-4">
 
           {/* Page Title */}
           <h1 className="text-2xl font-bold mb-6">
-            Search results for "{query}"
+            Search results for &ldquo;{query}&rdquo;
           </h1>
 
           {/* Search Bar */}
-          <div className="mb-6">
+          <section className="mb-6" aria-label="Search">
             <SearchBar />
-          </div>
+          </section>
 
           {/* Categories */}
-          <div className="mb-8">
+          <section className="mb-8" aria-label="Categories">
             <CategoryList categories={categories} />
-          </div>
+          </section>
 
           {/* Results Count */}
-          <div className="mb-4 flex justify-between items-center">
+          <section className="mb-4" aria-label="Results count">
             <h2 className="font-bold">
               {wallpapers.length} Wallpapers Found
             </h2>
-          </div>
+          </section>
 
           {/* Wallpapers */}
           {wallpapers.length > 0 ? (
-            <WallpaperGrid wallpapers={wallpapers} />
+            <section aria-label="Search results">
+              <WallpaperGrid wallpapers={wallpapers} />
+            </section>
           ) : (
             <div className="text-center py-16">
               <h3 className="mb-4 text-xl">
-                No wallpapers found for "{query}"
+                No wallpapers found for &ldquo;{query}&rdquo;
               </h3>
 
               <p className="text-muted-foreground">

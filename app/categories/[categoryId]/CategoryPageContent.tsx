@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -13,8 +12,6 @@ import SearchBar from '../../components/SearchBar';
 
 import {
   categories,
-  getWallpapersByCategory,
-  getCategoryById,
   tags,
 } from '../../lib/wallpapers';
 
@@ -28,10 +25,22 @@ import {
   X
 } from 'lucide-react';
 
-export default function CategoryPageContent() {
-  const params = useParams();
-  const categoryId = params?.categoryId as string;
+import type { Wallpaper } from '../../lib/wallpapers';
 
+interface CategoryInfo {
+  id: string;
+  name: string;
+  description?: string;
+  count?: number;
+}
+
+interface Props {
+  categoryId: string;
+  category: CategoryInfo;
+  initialWallpapers: Wallpaper[];
+}
+
+export default function CategoryPageContent({ categoryId, category, initialWallpapers }: Props) {
   const [viewMode, setViewMode] = useState<1 | 2 | 3>(2);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedResolutions, setSelectedResolutions] = useState<string[]>([]);
@@ -39,33 +48,13 @@ export default function CategoryPageContent() {
 
   const resolutions = ['1920x1080', '2560x1440', '3840x2160', '4K', '8K'];
 
-  const category = useMemo(() => {
-    if (categoryId === 'all') {
-      return {
-        id: 'all',
-        name: 'All Categories',
-        description: 'Explore our complete collection of high-quality wallpapers across all categories.',
-        count: undefined
-      };
-    }
-    return getCategoryById(categoryId);
-  }, [categoryId]);
-
-  const wallpapers = useMemo(() => {
-    if (!category) return [];
-    if (categoryId === 'all') {
-      return categories
-        .flatMap((cat) => getWallpapersByCategory(cat.id).slice(0, 5))
-        .slice(0, 32);
-    }
-    return getWallpapersByCategory(categoryId);
-  }, [category, categoryId]);
+  const wallpapers = initialWallpapers;
 
   const isFeaturedCategory = categoryId === 'all';
 
   const relevantTags = useMemo(() => {
     return tags
-      .filter((tag) => wallpapers.some((w) => w.tags.includes(tag.id)))
+      .filter((tag) => wallpapers.some((w) => w.tags?.includes(tag.id)))
       .slice(0, 12);
   }, [wallpapers]);
 
@@ -113,8 +102,8 @@ export default function CategoryPageContent() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 pt-20">
-        <section className="relative min-h-[300px] overflow-hidden bg-gradient-to-br from-background via-muted to-card">
+      <main className="flex-1 pt-20" role="main" id="main-content">
+        <section className="relative min-h-[300px] overflow-hidden bg-gradient-to-br from-background via-muted to-card" aria-labelledby="category-page-title">
           <div className="absolute inset-0 opacity-20">
             {featuredImage && (
               <div className="relative w-full h-full overflow-hidden">
@@ -132,7 +121,7 @@ export default function CategoryPageContent() {
           </div>
 
           <div className="container mx-auto px-4 py-10 relative z-10">
-            <div className="py-4">
+            <nav className="py-4" aria-label="Breadcrumb">
               <Link
                 href="/"
                 className="flex items-center text-sm text-muted-foreground hover:text-primary"
@@ -140,10 +129,10 @@ export default function CategoryPageContent() {
                 <ArrowLeft size={16} className="mr-1" />
                 Back to Home
               </Link>
-            </div>
+            </nav>
 
-            <div className="max-w-2xl">
-              <h1 className="text-3xl font-bold mb-2">{category.name}</h1>
+            <header className="max-w-2xl">
+              <h1 id="category-page-title" className="text-3xl font-bold mb-2">{category.name}</h1>
               {category.description && (
                 <p className="text-muted-foreground mb-4">
                   {category.description}
@@ -161,27 +150,27 @@ export default function CategoryPageContent() {
                   </span>
                 )}
               </div>
-            </div>
+            </header>
           </div>
         </section>
 
         <div className="container mx-auto px-4 py-8">
-          <div className="mb-6">
+          <section className="mb-6" aria-label="Search">
             <SearchBar />
-          </div>
+          </section>
 
-          <div className="mb-8">
+          <section className="mb-8" aria-label="Categories">
             <CategoryList
               categories={categories}
               selectedCategory={category.id}
             />
-          </div>
+          </section>
 
           {relevantTags.length > 0 && (
-            <div className="mb-8">
-              <h3 className="font-medium mb-3">
+            <section className="mb-8" aria-label="Popular tags">
+              <h2 className="font-medium mb-3">
                 Popular Tags in {category.name}
-              </h3>
+              </h2>
               <div className="flex flex-wrap gap-2">
                 {relevantTags.map((tag) => (
                   <Link key={tag.id} href={`/tag/${tag.id}`} className="tag-pill">
@@ -189,10 +178,10 @@ export default function CategoryPageContent() {
                   </Link>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+          <section className="flex flex-wrap justify-between items-center mb-4 gap-4" aria-label="Wallpaper count and controls">
             <div className="flex items-center gap-2">
               <h2 className="font-bold">{filteredWallpapers.length} Wallpapers</h2>
               {(selectedResolutions.length > 0 || selectedTags.length > 0) && (
@@ -223,6 +212,7 @@ export default function CategoryPageContent() {
                   className={`view-toggle-btn ${viewMode === 1 ? 'active' : ''}`}
                   onClick={() => setViewMode(1)}
                   title="Large grid"
+                  aria-label="Large grid view"
                 >
                   <Grid2X2 size={16} />
                 </button>
@@ -230,6 +220,7 @@ export default function CategoryPageContent() {
                   className={`view-toggle-btn ${viewMode === 2 ? 'active' : ''}`}
                   onClick={() => setViewMode(2)}
                   title="Medium grid"
+                  aria-label="Medium grid view"
                 >
                   <Grid3X3 size={16} />
                 </button>
@@ -237,20 +228,22 @@ export default function CategoryPageContent() {
                   className={`view-toggle-btn ${viewMode === 3 ? 'active' : ''}`}
                   onClick={() => setViewMode(3)}
                   title="Small grid"
+                  aria-label="Small grid view"
                 >
                   <LayoutGrid size={16} />
                 </button>
               </div>
             </div>
-          </div>
+          </section>
 
           {filterOpen && (
-            <div className="filter-dropdown mb-6 p-4 bg-card border rounded-lg">
+            <section className="filter-dropdown mb-6 p-4 bg-card border rounded-lg" aria-label="Filter options">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Filter Wallpapers</h3>
                 <button
                   onClick={() => setFilterOpen(false)}
                   className="text-muted-foreground hover:text-foreground"
+                  aria-label="Close filter"
                 >
                   <X size={18} />
                 </button>
@@ -287,19 +280,21 @@ export default function CategoryPageContent() {
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
-          <WallpaperGrid
-            wallpapers={filteredWallpapers}
-            source="category"
-            className={viewMode === 1 ? 'grid-cols-2' : viewMode === 3 ? 'grid-cols-4' : ''}
-          />
+          <section aria-label="Wallpapers in this category">
+            <WallpaperGrid
+              wallpapers={filteredWallpapers}
+              source="category"
+              className={viewMode === 1 ? 'grid-cols-2' : viewMode === 3 ? 'grid-cols-4' : ''}
+            />
+          </section>
 
           {filteredWallpapers.length > 20 && (
-            <div className="mt-8 flex justify-center">
+            <nav className="mt-8 flex justify-center" aria-label="Pagination">
               <div className="pagination">
-                <button className="pagination-btn active">1</button>
+                <button className="pagination-btn active" aria-current="page">1</button>
                 <button className="pagination-btn">2</button>
                 <button className="pagination-btn">3</button>
                 <span className="pagination-ellipsis">...</span>
@@ -308,7 +303,7 @@ export default function CategoryPageContent() {
                   Next <ArrowRight size={14} />
                 </button>
               </div>
-            </div>
+            </nav>
           )}
         </div>
       </main>

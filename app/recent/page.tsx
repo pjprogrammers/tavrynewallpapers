@@ -1,65 +1,149 @@
-import { Metadata } from 'next';
+import { Metadata } from "next";
 import Link from "next/link";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import WallpaperGrid from "../components/WallpaperGrid";
 import SearchBar from "../components/SearchBar";
 import CategoryList from "../components/CategoryList";
-import { categories, getRecentWallpapers } from "../lib/wallpapers";
+import {
+  categories,
+  getRecentWallpapers as getStaticRecent,
+  type Wallpaper,
+} from "../lib/wallpapers";
+import { getAllWallpapersFromFirestore } from "@/lib/wallpaper-store";
 import { ArrowLeft } from "lucide-react";
 
-const SITE_URL = 'https://tavrynewallpapers.vercel.app';
-const SITE_NAME = 'Tavryne Wallpapers';
+const SITE_URL = "https://tavrynewallpapers.vercel.app";
+const SITE_NAME = "Tavryne Wallpapers";
+
+// Live Firestore data — render at request time so the build workers
+// don't pre-render empty pages (workers can't reach Firestore).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `Recent Wallpapers | ${SITE_NAME}`,
-  description: 'Browse the latest wallpapers added to our collection. New 4K, HD, and 8K wallpapers added daily.',
-  keywords: ['recent wallpapers', 'new wallpapers', 'latest wallpapers', SITE_NAME],
+  description: `Browse the latest wallpapers added to the ${SITE_NAME} collection. New 4K, HD, and 8K wallpapers added daily.`,
+  keywords: [
+    "recent wallpapers",
+    "new wallpapers",
+    "latest wallpapers",
+    "fresh wallpapers",
+    "Tavryne",
+    SITE_NAME,
+  ],
   alternates: {
     canonical: `${SITE_URL}/recent`,
   },
   openGraph: {
-    type: 'website',
-    locale: 'en_US',
+    type: "website",
+    locale: "en_US",
     url: `${SITE_URL}/recent`,
     siteName: SITE_NAME,
     title: `Recent Wallpapers | ${SITE_NAME}`,
-    description: 'Browse the latest wallpapers added to our collection.',
+    description: `Browse the latest wallpapers added to the ${SITE_NAME} collection.`,
+    images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Recent Wallpapers | ${SITE_NAME}`,
+    description: `Browse the latest wallpapers added to the ${SITE_NAME} collection.`,
+    images: [`${SITE_URL}/og-image.png`],
   },
 };
 
-export default function RecentPage() {
-  const recentWallpapers = getRecentWallpapers();
-  
+async function loadRecentWallpapers(): Promise<Wallpaper[]> {
+  // Read all from Firestore and sort by uploadDate desc (already in
+  // updatedAt order from Firestore — we re-sort by uploadDate to match
+  // the static /recent semantics).
+  const fromFs = await getAllWallpapersFromFirestore(500);
+  if (fromFs.length > 0) {
+    const sorted = [...fromFs].sort((a, b) => {
+      const da = a.uploadDate ? new Date(a.uploadDate).getTime() : 0;
+      const db = b.uploadDate ? new Date(b.uploadDate).getTime() : 0;
+      return db - da;
+    });
+    return sorted as unknown as Wallpaper[];
+  }
+  return getStaticRecent();
+}
+
+export default async function RecentPage() {
+  const recentWallpapers = await loadRecentWallpapers();
+
+  const collectionPage = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `Recent Wallpapers | ${SITE_NAME}`,
+    description: `Latest wallpapers added to the ${SITE_NAME} collection.`,
+    url: `${SITE_URL}/recent`,
+    numberOfItems: recentWallpapers.length,
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    inLanguage: "en",
+  };
+
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Recent Wallpapers", item: `${SITE_URL}/recent` },
+    ],
+  };
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Recent Wallpapers",
+    url: `${SITE_URL}/recent`,
+    numberOfItems: recentWallpapers.length,
+    itemListElement: recentWallpapers.slice(0, 20).map((w, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      name: w.title,
+      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      image: `${SITE_URL}/wallpapers/${w.filename}`,
+    })),
+  };
+
+  const jsonLd = [collectionPage, breadcrumb, itemList];
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 pt-20">
-        <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
-          <div className="py-4">
-            <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
-              <ArrowLeft size={16} className="mr-1" /> Back to Home
-            </Link>
+    <>
+      {jsonLd.map((schema, idx) => (
+        <script
+          key={idx}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 pt-20" role="main" id="main-content">
+          <div className="container mx-auto px-4">
+            <nav className="py-4" aria-label="Breadcrumb">
+              <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
+                <ArrowLeft size={16} className="mr-1" /> Back to Home
+              </Link>
+            </nav>
+
+            <h1 className="text-2xl font-bold mb-6">Recent Wallpapers</h1>
+
+            <section className="mb-6" aria-label="Search">
+              <SearchBar />
+            </section>
+
+            <section className="mb-8" aria-label="Categories">
+              <CategoryList categories={categories} />
+            </section>
+
+            <section aria-label="Recent wallpapers">
+              <WallpaperGrid wallpapers={recentWallpapers} />
+            </section>
           </div>
-          
-          <h1 className="text-2xl font-bold mb-6">Recent Wallpapers</h1>
-          
-          {/* Search bar */}
-          <div className="mb-6">
-            <SearchBar />
-          </div>
-          
-          {/* Categories */}
-          <div className="mb-8">
-            <CategoryList categories={categories} />
-          </div>
-          
-          {/* Wallpapers */}
-          <WallpaperGrid wallpapers={recentWallpapers} />
-        </div>
-      </main>
-      <Footer />
-    </div>
+        </main>
+        <Footer />
+      </div>
+    </>
   );
-} 
+}

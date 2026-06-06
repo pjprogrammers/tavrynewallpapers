@@ -1,5 +1,5 @@
 // Firebase
-export { default as app, auth, db } from "./firebase";
+export { default as app } from "./firebase";
 
 // Auth
 export * from "./auth";

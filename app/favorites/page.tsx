@@ -8,7 +8,7 @@ export default function FavoritesPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 pt-20">
+      <main className="flex-1 pt-20" role="main" id="main-content">
         <div className="container mx-auto px-4">
           <FavoritesContent />
         </div>

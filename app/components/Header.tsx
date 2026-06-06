@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Search,
@@ -17,15 +18,19 @@ import {
   UserPlus,
   User,
   Settings,
+  Shield,
   ChevronDown,
 } from "lucide-react";
 import SearchBar from "./SearchBar";
 import { useAuth } from "@/lib/auth-context";
+import { useUserRoles } from "@/lib/use-user-roles";
 import { signOut as firebaseSignOut } from "@/lib/auth";
 
 const Header = () => {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { roles } = useUserRoles();
+  const isAdmin = roles.admin === true;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -183,6 +188,16 @@ const Header = () => {
             <Tag size={18} className="nav-icon" />
             <span>All Wallpapers</span>
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`nav-link nav-link-admin ${isActive("/admin") ? "active" : ""}`}
+              aria-label="Admin dashboard"
+            >
+              <Shield size={18} className="nav-icon" />
+              <span>Admin</span>
+            </Link>
+          )}
         </nav>
 
         {/* Desktop Actions */}
@@ -227,9 +242,12 @@ const Header = () => {
                 aria-haspopup="true"
                 type="button"
               >
-                <img
+                <Image
                   src={avatarUrl}
                   alt="User avatar"
+                  width={36}
+                  height={36}
+                  unoptimized
                   className="user-avatar"
                 />
                 <ChevronDown
@@ -246,9 +264,12 @@ const Header = () => {
               >
                 {/* Header with user info */}
                 <div className="user-dropdown-header">
-                  <img
+                  <Image
                     src={avatarUrl}
                     alt="User avatar"
+                    width={56}
+                    height={56}
+                    unoptimized
                     className="user-dropdown-avatar"
                   />
                   <div className="user-dropdown-info">
@@ -299,6 +320,17 @@ const Header = () => {
                     <Settings size={16} />
                     <span>Settings</span>
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="user-dropdown-item user-dropdown-admin"
+                      onClick={handleMenuItemClick}
+                      role="menuitem"
+                    >
+                      <Shield size={16} />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                  )}
                 </div>
 
                 {/* Footer with logout */}
@@ -375,7 +407,7 @@ const Header = () => {
                   className="mobile-nav-link mobile-nav-user"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <img src={avatarUrl} alt="Profile" className="mobile-nav-avatar" />
+                  <Image src={avatarUrl} alt="Profile" width={36} height={36} unoptimized className="mobile-nav-avatar" />
                   <span>Your Profile</span>
                 </Link>
                 <div className="mobile-nav-divider" />
@@ -421,6 +453,17 @@ const Header = () => {
               <Tag size={20} className="mobile-nav-icon" />
               <span>All Wallpapers</span>
             </Link>
+
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className={`mobile-nav-link mobile-nav-link-admin ${isActive("/admin") ? "active" : ""}`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Shield size={20} className="mobile-nav-icon" />
+                <span>Admin Dashboard</span>
+              </Link>
+            )}
 
             <div className="mobile-nav-divider" />
 

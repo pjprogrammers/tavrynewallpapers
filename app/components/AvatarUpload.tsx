@@ -182,6 +182,7 @@ export const AvatarUpload = ({
       if (!file) return;
       processFile(file);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- processFile is recreated each render; stable ref is enough
     []
   );
 
@@ -478,10 +479,14 @@ export const AvatarUpload = ({
                     <div className="gh-url-preview">
                       <span className="gh-url-preview-label">Preview</span>
                       <div className="gh-url-preview-img">
-                        <img
+                        <Image
                           src={urlPreview}
                           alt="Preview"
+                          width={200}
+                          height={200}
+                          unoptimized
                           onError={() => setUrlError(true)}
+                          style={{ width: "100%", height: "auto", maxWidth: 200 }}
                         />
                       </div>
                     </div>

@@ -1,16 +1,30 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+
+export const metadata: Metadata = {
+  title: "404 — Page Not Found | Tavryne Wallpapers",
+  description: "The page you're looking for doesn't exist or has been moved.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
+};
 
 export default function NotFound() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 flex items-center justify-center">
+      <main className="flex-1 flex items-center justify-center" role="main">
         <div className="container mx-auto px-4 text-center py-20">
           <h1 className="text-6xl font-bold mb-4">404</h1>
           <h2 className="text-2xl mb-8">Page Not Found</h2>
-          <p className="text-muted-foreground mb-8">The page you're looking for doesn't exist or has been moved.</p>
+          <p className="text-muted-foreground mb-8">The page you&apos;re looking for doesn&apos;t exist or has been moved.</p>
           <Link href="/" className="btn-primary">
             Return to Home
           </Link>
@@ -19,4 +33,4 @@ export default function NotFound() {
       <Footer />
     </div>
   );
-} 
+}

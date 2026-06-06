@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Upload, X, Check, Image as ImageIcon, Tag, Info, User, Link, Loader2, AlertCircle } from "lucide-react";
+import { Upload, X, Check, Image as ImageIcon, Tag, Info, User, Link as LinkIcon, Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import Link from "next/link";
+import Image from "next/image";
 
 // Security: Allowed MIME types for upload
 const ALLOWED_MIME_TYPES = [
@@ -268,7 +270,7 @@ export default function UploadPage() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 pt-24 pb-16 flex items-center justify-center">
+        <main className="flex-1 pt-24 pb-16 flex items-center justify-center" role="main" id="main-content">
           <div className="text-muted-foreground">Loading...</div>
         </main>
         <Footer />
@@ -284,7 +286,7 @@ export default function UploadPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 pt-24 pb-16">
+      <main className="flex-1 pt-24 pb-16" role="main" id="main-content">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -323,9 +325,9 @@ export default function UploadPage() {
                   >
                     Upload Another
                   </button>
-                  <a href="/" className="btn-secondary">
+                  <Link href="/" className="btn-secondary">
                     Back to Home
-                  </a>
+                  </Link>
                 </div>
               </div>
             ) : (
@@ -358,7 +360,7 @@ export default function UploadPage() {
                           onClick={() => setUrlInputMode(true)}
                           className="text-sm flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
                         >
-                          <Link size={16} />
+                          <LinkIcon size={16} />
                           Paste Image URL
                         </button>
                       </div>
@@ -459,10 +461,12 @@ export default function UploadPage() {
                       <div className="relative border border-border rounded-lg overflow-hidden group">
                         {imagePreview && (
                           <div className="aspect-video relative">
-                            <img
+                            <Image
                               src={imagePreview}
                               alt="Preview"
-                              className="w-full h-full object-contain"
+                              fill
+                              unoptimized
+                              className="object-contain"
                             />
                             <button
                               type="button"
@@ -609,7 +613,7 @@ export default function UploadPage() {
                           placeholder="Your email address"
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          We'll never share your email with anyone else.
+                          We&apos;ll never share your email with anyone else.
                         </p>
                       </div>
                       

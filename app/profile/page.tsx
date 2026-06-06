@@ -312,7 +312,7 @@ export default function ProfilePage() {
     return (
       <div className="profile-page">
         <AnimatedBackground />
-        <div className="profile-loading">
+        <div className="profile-loading" role="status" aria-live="polite">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -364,7 +364,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="profile-page" ref={containerRef} style={{ position: 'relative' }}>
+    <main className="profile-page" ref={containerRef} style={{ position: 'relative' }} role="main" id="main-content">
       <AnimatedBackground />
       <Header />
 
@@ -572,6 +572,7 @@ export default function ProfilePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.2 }}
+          aria-label="Profile sections"
         >
           {TABS.map((tab, index) => (
             <motion.button

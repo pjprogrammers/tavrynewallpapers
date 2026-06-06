@@ -32,8 +32,13 @@ const poppins = Poppins({
 // ----------------------
 const SITE_URL = 'https://tavrynewallpapers.vercel.app';
 const SITE_NAME = 'Tavryne Wallpapers';
-const SITE_DESCRIPTION = 'Discover and download stunning high-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers. Free wallpapers for desktop and mobile.';
+const SITE_ALTERNATE_NAME = 'Tavryne';
+const SITE_DESCRIPTION =
+  'Tavryne Wallpapers is a wallpaper download website offering 4K, HD, and 8K anime, gaming, cyberpunk, nature, and aesthetic wallpapers for desktop and mobile devices.';
+const SITE_SHORT_DESCRIPTION =
+  'Tavryne Wallpapers - Free 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers for desktop and mobile.';
 const OG_IMAGE = `${SITE_URL}/og-image.png`;
+const LOGO_URL = `${SITE_URL}/icon-192.svg`;
 
 // ----------------------
 // Viewport
@@ -51,6 +56,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
   applicationName: SITE_NAME,
+  appLinks: {},
 
   title: {
     default: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
@@ -63,7 +69,10 @@ export const metadata: Metadata = {
 },
 
   keywords: [
-    'Tavryne Wallpapers',
+    SITE_NAME,
+    SITE_ALTERNATE_NAME,
+    'Tavryne',
+    'Tavryne wallpapers',
     'wallpapers',
     '4K wallpapers',
     '8K wallpapers',
@@ -80,10 +89,12 @@ export const metadata: Metadata = {
     'premium wallpapers',
   ],
 
-  authors: [{ name: SITE_NAME }],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
   creator: SITE_NAME,
   publisher: SITE_NAME,
   category: 'technology',
+  classification: 'Wallpaper Download Service',
+  formatDetection: { telephone: false, address: false, email: false },
 
   robots: {
     index: true,
@@ -94,6 +105,7 @@ export const metadata: Metadata = {
       'max-video-preview': -1,
       'max-image-preview': 'large',
       'max-snippet': -1,
+      'noimageindex': false,
     },
   },
 
@@ -101,6 +113,7 @@ export const metadata: Metadata = {
     canonical: SITE_URL,
     languages: {
       'en': SITE_URL,
+      'x-default': SITE_URL,
     },
   },
 
@@ -109,16 +122,15 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: SITE_URL,
     siteName: SITE_NAME,
-
     title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
-    description: SITE_DESCRIPTION,
-
+    description: SITE_SHORT_DESCRIPTION,
+    determiner: '',
     images: [
       {
         url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: 'Tavryne Wallpapers - Premium HD & 4K Wallpapers',
+        alt: `${SITE_NAME} — Free 4K Anime, Gaming & Cyberpunk Wallpapers`,
       },
     ],
   },
@@ -126,63 +138,142 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: `${SITE_NAME} — 4K Anime, Gaming & Cyberpunk Wallpapers`,
-    description: SITE_DESCRIPTION,
+    description: SITE_SHORT_DESCRIPTION,
     creator: '@tavrynewallpapers',
     site: '@tavrynewallpapers',
     images: [OG_IMAGE],
   },
+
+  icons: {
+    icon: [
+      // Modern browsers (Chrome, Firefox, Edge, Safari) prefer SVG.
+      { url: '/icon-192.svg', type: 'image/svg+xml', sizes: 'any' },
+      // Multi-resolution .ico for legacy browsers + Bing/Google SERPs.
+      { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
+      // Raster fallbacks for clients that don't read SVG icons.
+      { url: '/icon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/icon-96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: [
+      { url: '/icon-180.png', sizes: '180x180', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+  },
+
+  manifest: '/site.webmanifest',
+
+  other: {
+    'application-name': SITE_NAME,
+    'apple-mobile-web-app-title': SITE_ALTERNATE_NAME,
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+    'mobile-web-app-capable': 'yes',
+    'theme-color': '#0a0a0a',
+    'color-scheme': 'dark',
+    // Windows tile (used by Bing and Windows Start menu)
+    'msapplication-TileColor': '#0a0a0a',
+    'msapplication-TileImage': `${SITE_URL}/icon-256.png`,
+    'msapplication-config': '/site.webmanifest',
+    'twitter:label1': 'Wallpaper count',
+    'twitter:data1': `${getAllWallpapers().length}+`,
+    'twitter:label2': 'Resolution range',
+    'twitter:data2': 'HD, 4K, 8K',
+  },
 };
 
 // ----------------------
-// JSON-LD Structured Data
+// JSON-LD Schema Generators
 // ----------------------
-export function generateWebSiteSchema() {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: SITE_NAME,
-    url: SITE_URL,
-    description: SITE_DESCRIPTION,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: SITE_NAME,
-      url: SITE_URL,
-    },
-  };
-}
 
+/**
+ * Organization schema (used for Knowledge Panel / brand disambiguation)
+ *  - `name`: full brand name
+ *  - `alternateName`: short brand name (helps Google associate "Tavryne" with brand)
+ *  - `disambiguatingDescription`: explicitly clarify what the brand is
+ *  - `knowsAbout`: domain topics to disambiguate from unrelated topics
+ */
 export function generateOrganizationSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': `${SITE_URL}/#organization`,
     name: SITE_NAME,
+    alternateName: [SITE_ALTERNATE_NAME, 'Tavryne Wallpaper', 'TavryneWallpapers'],
+    legalName: SITE_NAME,
     url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
-    description: SITE_DESCRIPTION,
+    logo: {
+      '@type': 'ImageObject',
+      url: LOGO_URL,
+      width: 192,
+      height: 192,
+      caption: `${SITE_NAME} logo`,
+    },
+    image: OG_IMAGE,
+    description:
+      'Tavryne Wallpapers is an online wallpaper download service that provides high-quality 4K, HD, and 8K wallpapers for desktop and mobile devices.',
+    disambiguatingDescription:
+      'Tavryne Wallpapers is a wallpaper download website. It is not related to the amino acid, supplement, energy drink, or any other use of the similarly-spelled word "taurine".',
+    foundingDate: '2023',
+    slogan: '4K Anime, Gaming & Cyberpunk Wallpapers',
+    knowsAbout: [
+      'Wallpapers',
+      '4K Wallpapers',
+      'HD Wallpapers',
+      '8K Wallpapers',
+      'Anime Wallpapers',
+      'Gaming Wallpapers',
+      'Cyberpunk Wallpapers',
+      'Aesthetic Wallpapers',
+      'Desktop Wallpapers',
+      'Mobile Wallpapers',
+    ],
+    inLanguage: 'en',
     sameAs: [
       'https://twitter.com/tavrynewallpapers',
       'https://instagram.com/tavrynewallpapers',
       'https://github.com/tavryne',
+      'https://www.pinterest.com/tavrynewallpapers',
     ],
-    contactPoint: {
-      '@type': 'ContactPoint',
-      contactType: 'customer service',
-      email: 'contact@tavrynewallpapers.vercel.app',
-      availableLanguage: 'English',
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        email: 'contact@tavrynewallpapers.vercel.app',
+        availableLanguage: ['English'],
+      },
+    ],
+  };
+}
+
+/**
+ * WebSite schema (used for Sitelinks Search Box and brand site name)
+ */
+export function generateWebSiteSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${SITE_URL}/#website`,
+    name: SITE_NAME,
+    alternateName: SITE_ALTERNATE_NAME,
+    url: SITE_URL,
+    description: SITE_SHORT_DESCRIPTION,
+    inLanguage: 'en',
+    publisher: { '@id': `${SITE_URL}/#organization` },
+    copyrightHolder: { '@id': `${SITE_URL}/#organization` },
+    copyrightYear: new Date().getFullYear(),
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: [
+        {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+        },
+      ],
+      'query-input': 'required name=search_term_string',
     },
-    areaServed: {
-      '@type': 'Place',
-      '@id': 'https://en.wikipedia.org/wiki/Internet',
-    },
-    serviceType: 'Wallpaper Download Service',
   };
 }
 
@@ -222,11 +313,31 @@ export function generateCollectionPageSchema(name: string, description: string, 
     description,
     url,
     ...(itemCount && { numberOfItems: itemCount }),
-    publisher: {
-      '@type': 'Organization',
-      name: SITE_NAME,
-      url: SITE_URL,
-    },
+    publisher: { '@id': `${SITE_URL}/#organization` },
+    isPartOf: { '@id': `${SITE_URL}/#website` },
+  };
+}
+
+export function generateItemListSchema(
+  name: string,
+  url: string,
+  items: Array<{ name: string; url: string; image?: string; position: number }>
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    url,
+    numberOfItems: items.length,
+    itemListElement: items.map(item => ({
+      '@type': 'ListItem',
+      position: item.position,
+      name: item.name,
+      url: item.url,
+      ...(item.image && { image: item.image }),
+    })),
+    publisher: { '@id': `${SITE_URL}/#organization` },
+    isPartOf: { '@id': `${SITE_URL}/#website` },
   };
 }
 
@@ -238,12 +349,26 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Global JSON-LD: Organization + WebSite (injected on every page)
+  const organizationLd = generateOrganizationSchema();
+  const websiteLd = generateWebSiteSchema();
+
   return (
     <html
       lang="en"
       data-scroll-behavior="smooth"
       className={`${montserrat.variable} ${inter.variable} ${poppins.variable}`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }}
+        />
+      </head>
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>

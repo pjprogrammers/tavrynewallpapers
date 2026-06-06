@@ -1,7 +1,7 @@
 {
   "name": "Tavryne Wallpapers",
-  "short_name": "Tavryne Wallpapers",
-  "description": "Discover and download stunning high-quality 4K, HD, and 8K anime, gaming, cyberpunk wallpapers.",
+  "short_name": "Tavryne",
+  "description": "Tavryne Wallpapers - Free 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers for desktop and mobile.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",
@@ -9,19 +9,37 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/icon-192.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
     }
   ],
-  "categories": ["entertainment", "utilities"],
+  "categories": ["entertainment", "lifestyle", "photo", "utilities"],
   "lang": "en",
   "dir": "ltr",
   "scope": "/",

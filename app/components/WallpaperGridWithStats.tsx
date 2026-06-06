@@ -5,6 +5,7 @@ import { Download, Heart, Eye, Maximize2 } from "lucide-react";
 import { useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../lib/wallpapers";
 import Link from "next/link";
+import Image from "next/image";
 
 interface WallpaperGridWithStatsProps {
   wallpapers: Wallpaper[];
@@ -41,10 +42,11 @@ function WallpaperCardWithStats({ wallpaper }: WallpaperCardWithStatsProps) {
   return (
     <Link href={`/wallpaper/${wallpaper.slug}`} className="wallpaper-card-v3">
       <div className="wallpaper-v3-image-wrapper">
-        <img
+        <Image
           src={`/wallpapers/${wallpaper.filename}`}
           alt={wallpaper.title}
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
           className="wallpaper-v3-image"
         />
         <div className="wallpaper-v3-overlay">

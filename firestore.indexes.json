@@ -1,0 +1,124 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoryId", "order": "ASCENDING" },
+        { "fieldPath": "featured", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoryId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "featured", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trending", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tags", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wallpapers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lastEditedBy", "order": "ASCENDING" },
+        { "fieldPath": "lastEditedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "edits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "wallpaperSlug", "order": "ASCENDING" },
+        { "fieldPath": "editedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "edits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "editedBy", "order": "ASCENDING" },
+        { "fieldPath": "editedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "edits",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "editedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "edits",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "editedBy", "order": "ASCENDING" },
+        { "fieldPath": "editedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "roles.moderator", "order": "ASCENDING" },
+        { "fieldPath": "email", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "roles.admin", "order": "ASCENDING" },
+        { "fieldPath": "email", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "roles.admin", "order": "ASCENDING" },
+        { "fieldPath": "displayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "roles.moderator", "order": "ASCENDING" },
+        { "fieldPath": "displayName", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

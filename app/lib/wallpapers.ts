@@ -90,6 +90,7 @@ export const wallpapers: Wallpaper[] = [
     downloads: 980,
     likes: 343,
     featured: true,
+    trending: false,
     uploadDate: "2023-12-05",
     resolution: "3840x2160"
   },
@@ -104,6 +105,7 @@ export const wallpapers: Wallpaper[] = [
     views: 3450,
     downloads: 1680,
     likes: 588,
+    featured: false,
     trending: true,
     uploadDate: "2023-12-10",
     resolution: "5120x2880"
@@ -120,6 +122,7 @@ export const wallpapers: Wallpaper[] = [
     downloads: 1340,
     likes: 469,
     featured: true,
+    trending: false,
     uploadDate: "2023-12-15",
     resolution: "3840x2160"
   },
@@ -134,6 +137,7 @@ export const wallpapers: Wallpaper[] = [
     views: 1780,
     downloads: 890,
     likes: 312,
+    featured: false,
     trending: true,
     uploadDate: "2023-12-20",
     resolution: "3840x2160"
@@ -148,7 +152,9 @@ export const wallpapers: Wallpaper[] = [
     tags: ["5k", "blue", "ocean"],
     views: 1980,
     downloads: 1220,
+    likes: 415,
     featured: true,
+    trending: false,
     uploadDate: "2024-01-05",
     resolution: "5120x2880"
   },
@@ -162,6 +168,8 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "red"],
     views: 2780,
     downloads: 1480,
+    likes: 312,
+    featured: false,
     trending: true,
     uploadDate: "2024-01-10",
     resolution: "3840x2160"
@@ -176,6 +184,8 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "green"],
     views: 1340,
     downloads: 760,
+    featured: false,
+    trending: false,
     uploadDate: "2024-01-15",
     resolution: "3840x2160"
   },
@@ -204,6 +214,7 @@ export const wallpapers: Wallpaper[] = [
     tags: ["4k", "dark", "black"],
     views: 2870,
     downloads: 1890,
+    featured: false,
     trending: true,
     uploadDate: "2024-01-25",
     resolution: "3840x2160"

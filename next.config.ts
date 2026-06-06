@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "res.cloudinary.com",
       },
+      // Google profile photos used as user avatars (OAuth login)
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
 
     // Device sizes for responsive images

@@ -5,6 +5,7 @@
 
 # testing
 /coverage
+/.nyc_output
 
 # next.js
 /.next/
@@ -21,10 +22,29 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# temp / backup files
+*.tmp
+*.bak
+*.swp
+*.swo
+*.sw~
+*~
+.tmp/
+.temp/
 
 # local env files
-.env*.local
 .env
+.env*.local
+.env.development
+.env.production
+.env.test
+
+# Ensure the example env file is ALWAYS tracked, even if a rule
+# above is ever broadened to match it
+!.env.example
 
 # vercel
 .vercel
@@ -36,6 +56,40 @@ next-env.d.ts
 # IDE
 .idea/
 .vscode/
-*.swp
-*.swo
 .claude/
+
+# OS junk — Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# OS junk — macOS / Linux
+.Trash-*
+.fseventsd
+.Spotlight-V100
+._*
+
+# Tooling caches
+.turbo/
+.cache/
+.firebase/                       # Firebase Emulator Suite local cache
+.eslintcache
+
+# Firebase debug logs (from `firebase emulators:start`, etc.)
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pglite-debug.log
+.firebase/hosting.cache
+
+# Alternative package manager state
+pnpm-store/
+
+# Firebase Admin SDK service account key (NEVER commit this!)
+/serviceAccountKey.json
+**/serviceAccountKey.json
+**/firebase-adminsdk-*.json
+google-services.json
+GoogleService-Info.plist

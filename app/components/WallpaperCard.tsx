@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Download, Heart, Eye, Sparkles } from "lucide-react";
+import { Download, Heart, Eye, Sparkles, Sparkle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
   useLike,
@@ -13,6 +13,7 @@ import {
   useClickTracking,
 } from "@/lib/use-firestore";
 import { Wallpaper, getCategoryById } from "../lib/wallpapers";
+import { getRecencyBadge } from "@/lib/wallpaper-time";
 
 interface WallpaperCardProps {
   wallpaper?: Wallpaper;
@@ -54,8 +55,9 @@ const WallpaperCard = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
 
-  // Safe wallpaper object
-  const wallpaperData: Wallpaper = wallpaper || {
+  // Safe wallpaper object — memoized so the dependent useMemo below
+  // (recency badge) doesn't recompute on every render.
+  const wallpaperData: Wallpaper = useMemo(() => wallpaper || {
     id: id || "",
     title: title || "",
     filename: imageSrc?.split("/").pop() || "",
@@ -69,7 +71,7 @@ const WallpaperCard = ({
     trending: true,
     uploadDate: new Date().toISOString().split("T")[0],
     resolution: "3840x2160"
-  };
+  }, [wallpaper, id, title, imageSrc, categoryProp, likes, downloads]);
 
   const category = getCategoryById(wallpaperData.categoryId);
 
@@ -133,6 +135,8 @@ const WallpaperCard = ({
 
   const showDetailedHover = source !== "grid";
 
+  const recencyBadge = useMemo(() => getRecencyBadge(wallpaperData), [wallpaperData]);
+
   return (
     <div
       className={`wallpaper-card-v2 ${isHovered ? "hovered" : ""} ${showDetailedHover ? "detailed-hover" : ""} ${className}`}
@@ -158,6 +162,18 @@ const WallpaperCard = ({
 
           {/* Gradient Overlay */}
           <div className="wallpaper-card-v2-gradient" />
+
+          {/* Recency badge (always visible when present) */}
+          {recencyBadge && (
+            <span
+              className={`wallpaper-card-v2-recency wallpaper-card-v2-recency-${recencyBadge}`}
+              aria-label={recencyBadge === "new" ? "New or recently updated" : "Recently updated"}
+              title={recencyBadge === "new" ? "New or recently updated" : "Recently updated"}
+            >
+              <Sparkle size={10} />
+              {recencyBadge === "new" ? "New" : "Updated"}
+            </span>
+          )}
         </div>
 
         {/* Top Bar */}

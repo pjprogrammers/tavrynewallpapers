@@ -191,19 +191,19 @@ export default function SignUpPage() {
   };
 
   return (
-    <main className="signup-page">
+    <main className="signup-page" role="main" id="main-content">
       <div className="signup-grid" />
 
       <div className="signup-glow signup-glow-one" />
 
       <div className="signup-glow signup-glow-two" />
 
-      <section className="signup-card-wrapper">
+      <section className="signup-card-wrapper" aria-label="Sign up form">
         <div className="signup-card">
           <div className="signup-card-shine" />
 
           {/* Header */}
-          <div className="signup-header">
+          <header className="signup-header">
             <div className="signup-badge">
               <ShieldCheck size={18} />
 
@@ -221,11 +221,11 @@ export default function SignUpPage() {
               your personal wallpaper
               collection.
             </p>
-          </div>
+          </header>
 
           {/* Error */}
           {error && (
-            <div className="signup-error">
+            <div className="signup-error" role="alert">
               {error}
             </div>
           )}
@@ -234,6 +234,7 @@ export default function SignUpPage() {
           <form
             onSubmit={handleSubmit}
             className="signup-form"
+            aria-label="Sign up credentials"
           >
             {/* Name */}
             <div className="signup-input-group">
@@ -250,6 +251,7 @@ export default function SignUpPage() {
                 }
                 placeholder="Enter your name"
                 required
+                autoComplete="name"
               />
             </div>
 
@@ -268,6 +270,7 @@ export default function SignUpPage() {
                 }
                 placeholder="Enter your email"
                 required
+                autoComplete="email"
               />
             </div>
 
@@ -292,6 +295,7 @@ export default function SignUpPage() {
                   placeholder="Create password"
                   required
                   minLength={6}
+                  autoComplete="new-password"
                 />
 
                 <button
@@ -302,7 +306,7 @@ export default function SignUpPage() {
                     )
                   }
                   className="password-toggle"
-                  aria-label="Toggle password visibility"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <EyeOff size={18} />
@@ -336,6 +340,7 @@ export default function SignUpPage() {
                   placeholder="Confirm password"
                   required
                   minLength={6}
+                  autoComplete="new-password"
                 />
 
                 <button
@@ -346,7 +351,7 @@ export default function SignUpPage() {
                     )
                   }
                   className="password-toggle"
-                  aria-label="Toggle confirm password visibility"
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                 >
                   {showConfirmPassword ? (
                     <EyeOff size={18} />
@@ -374,7 +379,7 @@ export default function SignUpPage() {
           </form>
 
           {/* Divider */}
-          <div className="signup-divider">
+          <div className="signup-divider" role="separator">
             <span>
               OR CONTINUE WITH
             </span>
@@ -387,6 +392,7 @@ export default function SignUpPage() {
               onClick={handleGoogleSignIn}
               disabled={loading}
               className="social-btn"
+              aria-label="Sign up with Google"
             >
               <FcGoogle size={22} />
 
@@ -398,6 +404,7 @@ export default function SignUpPage() {
               onClick={handleGitHubSignIn}
               disabled={loading}
               className="social-btn"
+              aria-label="Sign up with GitHub"
             >
               <Github size={20} />
 
@@ -406,7 +413,7 @@ export default function SignUpPage() {
           </div>
 
           {/* Login Link */}
-          <div className="signup-footer">
+          <footer className="signup-footer">
             <p>
               Already have an account?
             </p>
@@ -414,7 +421,7 @@ export default function SignUpPage() {
             <Link href="/login">
               Sign In
             </Link>
-          </div>
+          </footer>
         </div>
       </section>
     </main>

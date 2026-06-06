@@ -87,8 +87,13 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/trending" className="footer-link">
-                    Trending
+                  <Link href="/recent" className="footer-link">
+                    Recent
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/edits" className="footer-link">
+                    Recent Edits
                   </Link>
                 </li>
                 <li>

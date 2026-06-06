@@ -5,7 +5,11 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth as firebaseGetAuth, Auth } from "firebase/auth";
-import { getFirestore as firebaseGetFirestore, Firestore } from "firebase/firestore";
+import {
+  getFirestore as firebaseGetFirestore,
+  initializeFirestore,
+  Firestore,
+} from "firebase/firestore";
 import { getStorage as firebaseGetStorage, FirebaseStorage } from "firebase/storage";
 
 /**
@@ -47,6 +51,27 @@ const validateConfig = (): boolean => {
 };
 
 /**
+ * Build-time / server-startup warning if any Admin SDK env var is missing.
+ * The Admin SDK is only required for `npm run role` and `npm run seed-wallpapers`,
+ * but a missing key in production means moderators can't be created.
+ */
+if (typeof window === "undefined" && process.env.NODE_ENV !== "test") {
+  const hasAdminKey = Boolean(
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS
+  );
+  if (!hasAdminKey) {
+     
+    console.warn(
+      "[Firebase Admin SDK] No credentials configured. The `npm run role` and `npm run seed-wallpapers` scripts will fail.\n" +
+        "Set one of: FIREBASE_SERVICE_ACCOUNT_KEY, FIREBASE_SERVICE_ACCOUNT_PATH, GOOGLE_APPLICATION_CREDENTIALS,\n" +
+        "or drop `serviceAccountKey.json` in the project root. See .env.example."
+    );
+  }
+}
+
+/**
  * Firebase App - Singleton pattern
  * Prevents multiple initializations which can cause issues
  */
@@ -78,7 +103,15 @@ let dbInstance: Firestore | undefined;
 const getFirestoreInternal = (): Firestore | undefined => {
   if (!app) return undefined;
   if (!dbInstance) {
-    dbInstance = firebaseGetFirestore(app);
+    try {
+      // ignoreUndefinedProperties lets us write data even if some fields are
+      // missing (undefined). Matches the Admin SDK behavior. The old static
+      // data had inconsistent featured/trending booleans; this avoids surprises.
+      dbInstance = initializeFirestore(app, { ignoreUndefinedProperties: true });
+    } catch {
+      // Already initialized by a previous call — reuse that instance.
+      dbInstance = firebaseGetFirestore(app);
+    }
   }
   return dbInstance;
 };
@@ -141,19 +174,5 @@ export const getFirebaseStorage = (): FirebaseStorage => {
   }
   return instance;
 };
-
-// Backward compatibility exports - these provide the same API as before
-// but with lazy initialization under the hood
-export const auth: Auth = {
-  // This is a placeholder - actual usage should go through getAuth()
-} as Auth;
-
-export const db = {
-  // Placeholder for backward compatibility
-} as Firestore;
-
-export const storage = {
-  // Placeholder for backward compatibility
-} as FirebaseStorage;
 
 export default app;

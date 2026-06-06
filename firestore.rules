@@ -14,6 +14,17 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    function isModerator() {
+      return isAuthenticated() && (
+        request.auth.token.moderator == true ||
+        request.auth.token.admin == true
+      );
+    }
+
     function isValidString(value, minLen, maxLen) {
       return value is string && value.size() >= minLen && value.size() <= maxLen;
     }
@@ -33,11 +44,12 @@ service cloud.firestore {
       // Anyone can read user profiles (for display)
       allow read: if true;
 
-      // Only the user can update their own profile
+      // The user can update their own profile, but cannot change
+      // the `roles` field (which mirrors custom claims).
       allow update: if isOwner(userId)
         && (
-          // Validating specific fields - prevent changing protected fields
           !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'roles',
             'email',
             'uid',
             'provider',
@@ -51,27 +63,61 @@ service cloud.firestore {
         && isValidString(request.resource.data.displayName, 0, 100)
         && isValidString(request.resource.data.email, 0, 254)
         && isValidUrl(request.resource.data.photoURL);
+
+      // Only admins can delete a user document
+      allow delete: if isAdmin();
     }
 
     /* =========================================================
        🖼️ WALLPAPERS COLLECTION
     ========================================================= */
-    match /wallpapers/{wallpaperId} {
+    match /wallpapers/{wallpaperSlug} {
       // Wallpapers are publicly readable
       allow read: if true;
 
-      // Only authenticated users can create wallpapers
+      // Public create (e.g. user uploads) — anyone authenticated
+      // can create a new wallpaper doc with a valid slug.
       allow create: if isAuthenticated()
+        && isValidString(request.resource.data.slug, 1, 200)
         && isValidString(request.resource.data.title, 1, 200)
-        && isValidString(request.resource.data.slug, 1, 200);
+        && wallpaperSlug == request.resource.data.slug;
 
-      // Only authenticated users can update their own wallpapers
-      allow update: if isAuthenticated()
-        && (resource.data.uploadedBy == request.auth.uid || resource.data.userId == request.auth.uid);
+      // ✅ Moderators (and admins) can update any wallpaper.
+      // Locked fields (slug, id, filename) cannot be changed.
+      allow update: if isModerator()
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'slug',
+            'id',
+            'filename',
+            'createdAt',
+            'uploaderId'
+          ])
+        );
 
-      // Only authenticated users can delete their own wallpapers
-      allow delete: if isAuthenticated()
-        && (resource.data.uploadedBy == request.auth.uid || resource.data.userId == request.auth.uid);
+      // Only admins can delete wallpapers
+      allow delete: if isAdmin();
+    }
+
+    /* =========================================================
+       📜 WALLPAPER EDIT HISTORY
+       Path: wallpaperEditHistory/{wallpaperSlug}/edits/{editId}
+    ========================================================= */
+    match /wallpaperEditHistory/{wallpaperSlug} {
+      // Anyone can read the edit history (transparency)
+      allow read: if true;
+
+      // Only moderators can create entries (via the edit modal)
+      // The client must be authenticated AND have the moderator or
+      // admin custom claim.
+      match /edits/{editId} {
+        allow read: if true;
+        allow create: if isModerator()
+          && request.resource.data.wallpaperSlug == wallpaperSlug
+          && request.resource.data.editedBy == request.auth.uid;
+        // History is append-only; no updates / deletes from the client.
+        allow update, delete: if isAdmin();
+      }
     }
 
     /* =========================================================
@@ -81,8 +127,8 @@ service cloud.firestore {
       // Stats are publicly readable
       allow read: if true;
 
-      // Allow anyone to update stats (atomic increments) for tracking views/downloads
-      // This uses increment() operations which are safe
+      // Allow anyone to update stats (atomic increments) for tracking
+      // views/downloads. The client uses `increment()` operations.
       allow write: if true;
     }
 
@@ -163,6 +209,17 @@ service cloud.firestore {
 
       // Anyone can record clicks
       allow create: if true;
+    }
+
+    /* =========================================================
+       🏷️ META COLLECTION (categories, tags seeds)
+    ========================================================= */
+    match /meta/{docId} {
+      // Public read (for tag/category lists, autocomplete, etc.)
+      allow read: if true;
+
+      // Only admins can write
+      allow write: if isAdmin();
     }
 
     /* =========================================================
