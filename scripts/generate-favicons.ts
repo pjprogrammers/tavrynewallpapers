@@ -2,10 +2,10 @@
  * 🌐 generate-favicons
  * =====================
  *
- * Rasterizes the canonical `app/icon.svg` (the file Next.js serves as
- * the primary favicon) to PNG at every size we need to ship (Apple touch
- * icon, PWA install, Windows tile, public/ raster fallbacks) and bundles
- * a multi-resolution `public/favicon.ico` for legacy browsers / crawlers.
+ * Rasterizes `public/icon-192.svg` to PNG at every size we need to ship
+ * (browser tabs, bookmarks, Apple touch icons, Android home-screen, PWA
+ * install, Windows tiles) and bundles a multi-resolution `favicon.ico`
+ * so Bing, Google, and legacy browsers all pick up a real icon.
  *
  * Run with:  npm run generate-favicons
  *
@@ -23,8 +23,7 @@ import sharp from "sharp";
 
 const ROOT = resolve(process.cwd());
 const PUBLIC_DIR = join(ROOT, "public");
-const APP_DIR = join(ROOT, "app");
-const SVG_PATH = join(APP_DIR, "icon.svg");
+const SVG_PATH = join(PUBLIC_DIR, "icon-192.svg");
 
 // Sizes to emit. Picked to cover every common platform hint:
 //  - 16, 32, 48     — browser tab + classic .ico

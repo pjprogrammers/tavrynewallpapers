@@ -434,15 +434,11 @@ tavrynewallpapers/
 ├── public/
 │   ├── wallpapers/                         # 40 wallpaper JPGs (1.jpg … 40.jpg)
 │   ├── avatars_preset/                     # Default avatar art
-│   ├── icon-16/32/48/64/96/128/192/256/384/512.png  # Raster fallbacks (PWA / manifest)
-│   ├── favicon.ico                         # Multi-resolution ICO fallback
+│   ├── icon-16/32/48/64/96/128/180/192/256/384/512.png
+│   ├── icon-192.svg                        # Primary SVG favicon
 │   ├── og-image.png                        # 1200×630 social card
+│   ├── favicon.ico
 │   └── site.webmanifest                    # PWA manifest
-│
-├── app/
-│   ├── icon.svg                            # Canonical SVG favicon (auto-served, hashed)
-│   ├── favicon.ico                         # Mirrors public/favicon.ico (Next.js convention)
-│   └── apple-icon.png                      # iOS home-screen icon (auto-served, hashed)
 │
 ├── firestore.rules                         # Security rules
 ├── firestore.indexes.json                  # Composite indexes
