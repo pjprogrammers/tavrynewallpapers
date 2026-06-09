@@ -312,26 +312,47 @@ export const getWallpaperStats = async (
 
 /**
  * Increment view count (atomic operation)
+ *
+ * Writes to BOTH:
+ *   - `wallpaperStats/{wallpaperId}` (source of truth for analytics)
+ *   - `wallpapers/{wallpaperId}.views` (denormalized counter so
+ *     `orderBy("views", "desc")` works as a single-field indexed
+ *     query — no composite index required for the popular page).
  */
 export const incrementViewCount = async (wallpaperId: string): Promise<void> => {
-  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
-  await setDoc(statsRef, {
-    wallpaperId,
-    views: increment(1),
-    lastViewed: serverTimestamp(),
-  }, { merge: true });
+  const db = getDBInstance();
+  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, wallpaperId);
+  const batch = writeBatch(db);
+  batch.set(
+    statsRef,
+    { wallpaperId, views: increment(1), lastViewed: serverTimestamp() },
+    { merge: true }
+  );
+  batch.set(wallpaperRef, { views: increment(1) }, { merge: true });
+  await batch.commit();
 };
 
 /**
  * Increment download count (atomic operation)
+ *
+ * Same dual-write pattern as `incrementViewCount`. The denormalized
+ * `wallpapers/{slug}.downloads` field powers the
+ * `getPopularWallpapersServer` query (single-field orderBy, no
+ * composite index needed).
  */
 export const incrementDownloadCount = async (wallpaperId: string): Promise<void> => {
-  const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
-  await setDoc(statsRef, {
-    wallpaperId,
-    downloads: increment(1),
-    lastDownloaded: serverTimestamp(),
-  }, { merge: true });
+  const db = getDBInstance();
+  const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+  const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, wallpaperId);
+  const batch = writeBatch(db);
+  batch.set(
+    statsRef,
+    { wallpaperId, downloads: increment(1), lastDownloaded: serverTimestamp() },
+    { merge: true }
+  );
+  batch.set(wallpaperRef, { downloads: increment(1) }, { merge: true });
+  await batch.commit();
 };
 
 /**
@@ -627,9 +648,25 @@ export const toggleLike = async (
       await deleteDoc(favoriteRef);
     }
 
-    // Decrement both likes and favorites counts atomically
-    const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
-    await setDoc(statsRef, { wallpaperId, likes: increment(-1), favorites: increment(-1) }, { merge: true });
+    // Decrement both likes and favorites counts atomically.
+    // Dual-write: `wallpaperStats` (analytics source of truth) and
+    // `wallpapers/{slug}` (denormalized counter for indexed
+    // sort-by-popularity queries).
+    const db = getDBInstance();
+    const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+    const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, wallpaperId);
+    const unlikeBatch = writeBatch(db);
+    unlikeBatch.set(
+      statsRef,
+      { wallpaperId, likes: increment(-1), favorites: increment(-1) },
+      { merge: true }
+    );
+    unlikeBatch.set(
+      wallpaperRef,
+      { likes: increment(-1), favorites: increment(-1) },
+      { merge: true }
+    );
+    await unlikeBatch.commit();
 
     return { liked: false };
   } else {
@@ -660,9 +697,23 @@ export const toggleLike = async (
       }
     }
 
-    // Increment both likes and favorites counts atomically
-    const statsRef = doc(getDBInstance(), COLLECTIONS.WALLPAPER_STATS, wallpaperId);
-    await setDoc(statsRef, { wallpaperId, likes: increment(1), favorites: increment(1) }, { merge: true });
+    // Increment both likes and favorites counts atomically.
+    // Dual-write: see comment above.
+    const db = getDBInstance();
+    const statsRef = doc(db, COLLECTIONS.WALLPAPER_STATS, wallpaperId);
+    const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, wallpaperId);
+    const likeBatch = writeBatch(db);
+    likeBatch.set(
+      statsRef,
+      { wallpaperId, likes: increment(1), favorites: increment(1) },
+      { merge: true }
+    );
+    likeBatch.set(
+      wallpaperRef,
+      { likes: increment(1), favorites: increment(1) },
+      { merge: true }
+    );
+    await likeBatch.commit();
 
     return { liked: true };
   }

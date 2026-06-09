@@ -123,13 +123,8 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/tag/mobile" className="footer-link">
-                    Mobile Wallpapers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/tag/desktop" className="footer-link">
-                    Desktop Wallpapers
+                  <Link href="/tag/hd" className="footer-link">
+                    HD Wallpapers
                   </Link>
                 </li>
               </ul>

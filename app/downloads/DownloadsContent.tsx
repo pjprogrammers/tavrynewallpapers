@@ -7,6 +7,7 @@ import { Download, ExternalLink, Monitor, Laptop, Smartphone, Calendar, HardDriv
 import { useAuth } from "@/lib/auth-context";
 import { useUserDownloads } from "@/lib/use-firestore";
 import type { Download as DownloadRecord } from "@/lib/firestore-types";
+import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 const deviceIcons = {
   monitor: Monitor,
@@ -138,7 +139,7 @@ const DownloadCard = ({ wallpaperId, downloads, priority = false }: DownloadCard
         {/* Background Image */}
         <div className="glass-card-image">
           <Image
-            src={`/wallpapers/${wallpaperId}.jpg`}
+            src={resolveThumbnailUrl({ filename: `${wallpaperId}.jpg` }) ?? `/wallpapers/${wallpaperId}.jpg`}
             alt={latestDownload.wallpaperSlug}
             fill
             className={`glass-card-img ${isHovered ? "blurred" : ""}`}

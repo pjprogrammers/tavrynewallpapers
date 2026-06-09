@@ -11,7 +11,14 @@ import {
   tags,
   type Wallpaper,
 } from "../../lib/wallpapers";
-import { getWallpapersByTagFromFirestore } from "@/lib/wallpaper-store";
+import {
+  getTagByIdServer,
+  getWallpapersByTagServer,
+} from "@/lib/wallpaper-store-server";
+import {
+  resolveImageUrl,
+  toAbsoluteImageUrl,
+} from "@/lib/wallpaper-image";
 import { ArrowLeft, Tag } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
@@ -27,7 +34,9 @@ interface TagPageProps {
 
 export async function generateMetadata({ params }: TagPageProps): Promise<Metadata> {
   const { tagId } = await params;
-  const tag = getTagById(tagId);
+  const staticTag = getTagById(tagId);
+  const fsTag = await getTagByIdServer(tagId);
+  const tag = fsTag ?? staticTag;
 
   if (!tag) {
     return {
@@ -36,14 +45,14 @@ export async function generateMetadata({ params }: TagPageProps): Promise<Metada
     };
   }
 
-  const fromFs = await getWallpapersByTagFromFirestore(tagId, 500);
+  const fromFs = await getWallpapersByTagServer(tagId, 500);
   const wallpapers = fromFs.length > 0 ? fromFs : getStaticByTag(tagId);
   const title = `${tag.name} Wallpapers — ${SITE_NAME}`;
   const description = `Browse ${wallpapers.length} wallpapers tagged with "${tag.name}". Download high-quality ${tag.name} wallpapers in 4K, HD, and 8K resolutions for desktop and mobile.`;
 
-  const tagImage = wallpapers[0]?.filename
-    ? `${SITE_URL}/wallpapers/${wallpapers[0].filename}`
-    : `${SITE_URL}/og-image.png`;
+  const tagImage =
+    toAbsoluteImageUrl(resolveImageUrl(wallpapers[0]), SITE_URL) ??
+    `${SITE_URL}/og-image.png`;
 
   return {
     title,
@@ -91,7 +100,7 @@ export async function generateMetadata({ params }: TagPageProps): Promise<Metada
 }
 
 async function loadTagWallpapers(tagId: string): Promise<Wallpaper[]> {
-  const fromFs = await getWallpapersByTagFromFirestore(tagId, 500);
+  const fromFs = await getWallpapersByTagServer(tagId, 500);
   if (fromFs.length > 0) {
     return fromFs as unknown as Wallpaper[];
   }
@@ -101,7 +110,9 @@ async function loadTagWallpapers(tagId: string): Promise<Wallpaper[]> {
 export default async function TagPage({ params }: TagPageProps) {
   const { tagId } = await params;
 
-  const tag = getTagById(tagId);
+  const staticTag = getTagById(tagId);
+  const fsTag = await getTagByIdServer(tagId);
+  const tag = fsTag ?? staticTag;
   if (!tag) return notFound();
 
   const wallpapers = await loadTagWallpapers(tagId);
@@ -139,7 +150,9 @@ export default async function TagPage({ params }: TagPageProps) {
       position: idx + 1,
       name: w.title,
       url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image: `${SITE_URL}/wallpapers/${w.filename}`,
+      image:
+        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${w.filename}`,
     })),
   };
 

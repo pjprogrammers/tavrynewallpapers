@@ -83,12 +83,16 @@
   
     background-size: 40px 40px;
   
-    mask-image:
-      radial-gradient(
-        circle at center,
-        black,
-        transparent 90%
-      );
+    -webkit-mask-image: radial-gradient(
+      circle at center,
+      black,
+      transparent 90%
+    );
+    mask-image: radial-gradient(
+      circle at center,
+      black,
+      transparent 90%
+    );
   
     pointer-events: none;
   
@@ -189,9 +193,9 @@
         rgba(7, 10, 9, 0.92)
       );
   
-    backdrop-filter: blur(18px);
-  
     -webkit-backdrop-filter: blur(18px);
+    
+    backdrop-filter: blur(18px);
   
     box-shadow:
       var(--signup-shadow),

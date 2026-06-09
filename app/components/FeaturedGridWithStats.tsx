@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../lib/wallpapers";
+import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface FeaturedGridWithStatsProps {
   wallpapers: Wallpaper[];
@@ -24,7 +25,7 @@ function FeaturedItemWithStats({ wallpaper, index }: FeaturedItemWithStatsProps)
     >
       <div className="featured-v2-image-container">
         <Image
-          src={`/wallpapers/${wallpaper.filename}`}
+          src={resolveThumbnailUrl(wallpaper) ?? `/wallpapers/${wallpaper.filename}`}
           alt={wallpaper.title}
           fill
           className="featured-v2-image"

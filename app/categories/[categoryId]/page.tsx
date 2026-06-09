@@ -7,7 +7,14 @@ import {
   type Wallpaper,
 } from "../../lib/wallpapers";
 import CategoryPageContent from "./CategoryPageContent";
-import { getWallpapersByCategoryFromFirestore } from "@/lib/wallpaper-store";
+import {
+  getCategoryByIdServer,
+  getWallpapersByCategoryServer,
+} from "@/lib/wallpaper-store-server";
+import {
+  resolveImageUrl,
+  toAbsoluteImageUrl,
+} from "@/lib/wallpaper-image";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -49,7 +56,9 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     };
   }
 
-  const category = getCategoryById(categoryId);
+  const staticCategory = getCategoryById(categoryId);
+  const fsCategory = await getCategoryByIdServer(categoryId);
+  const category = fsCategory ?? staticCategory;
 
   if (!category) {
     return {
@@ -59,16 +68,16 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   }
 
   // Try to read live count from Firestore; fall back to static
-  const fromFs = await getWallpapersByCategoryFromFirestore(categoryId, 500);
+  const fromFs = await getWallpapersByCategoryServer(categoryId, 500);
   const wallpapers = fromFs.length > 0 ? fromFs : getStaticByCategory(categoryId);
   const title = `${category.name} Wallpapers — ${SITE_NAME}`;
   const description = category.description
     ? `${category.description} Download high-quality ${category.name.toLowerCase()} wallpapers in 4K, HD, and 8K resolutions for desktop and mobile.`
     : `Download high-quality ${category.name.toLowerCase()} wallpapers. ${wallpapers.length}+ wallpapers available in 4K, HD, and 8K resolutions.`;
 
-  const categoryImage = wallpapers[0]?.filename
-    ? `${SITE_URL}/wallpapers/${wallpapers[0].filename}`
-    : `${SITE_URL}/og-image.png`;
+  const categoryImage =
+    toAbsoluteImageUrl(resolveImageUrl(wallpapers[0]), SITE_URL) ??
+    `${SITE_URL}/og-image.png`;
 
   return {
     title,
@@ -117,7 +126,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 async function loadCategoryWallpapers(categoryId: string): Promise<Wallpaper[]> {
   if (categoryId === "all") {
     // Sample 5 wallpapers per category, then slice 32
-    const allFromFs = await getWallpapersByCategoryFromFirestore(categoryId, 500);
+    const allFromFs = await getWallpapersByCategoryServer(categoryId, 500);
     if (allFromFs.length > 0) {
       // For "all" view, sample across categories client-side
       // We have only one category, so just return top 32
@@ -128,7 +137,7 @@ async function loadCategoryWallpapers(categoryId: string): Promise<Wallpaper[]> 
       .flatMap((cat) => getStaticByCategory(cat.id).slice(0, 5))
       .slice(0, 32);
   }
-  const fromFs = await getWallpapersByCategoryFromFirestore(categoryId, 500);
+  const fromFs = await getWallpapersByCategoryServer(categoryId, 500);
   if (fromFs.length > 0) {
     return fromFs as unknown as Wallpaper[];
   }
@@ -154,7 +163,17 @@ function buildCategory(categoryId: string) {
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { categoryId } = await params;
-  const category = buildCategory(categoryId);
+  const staticCategory = buildCategory(categoryId);
+  const fsCategory = categoryId === "all" ? null : await getCategoryByIdServer(categoryId);
+  const category =
+    staticCategory ??
+    (fsCategory
+      ? {
+          id: fsCategory.id,
+          name: fsCategory.name,
+          description: fsCategory.description,
+        }
+      : null);
   if (!category) {
     notFound();
   }
@@ -198,7 +217,9 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       position: idx + 1,
       name: w.title,
       url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image: `${SITE_URL}/wallpapers/${w.filename}`,
+      image:
+        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${w.filename}`,
     })),
   };
 

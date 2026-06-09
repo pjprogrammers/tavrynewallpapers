@@ -4,11 +4,47 @@ import Footer from "./components/Footer";
 import WallpaperGridWithStats from "./components/WallpaperGridWithStats";
 import FeaturedGridWithStats from "./components/FeaturedGridWithStats";
 import SearchBar from "./components/SearchBar";
-import CategoryList from "./components/CategoryList";
-import { categories, getAllWallpapers, getTrendingWallpapers, getFeaturedWallpapers } from "./lib/wallpapers";
-import Image from "next/image";
+import { categories } from "./lib/wallpapers";
 import Link from "next/link";
 import { ChevronRight, Download, Heart, TrendingUp } from "lucide-react";
+import { resolveImageUrl, toAbsoluteImageUrl } from "@/lib/wallpaper-image";
+import {
+  getAllWallpapersServer,
+  getFeaturedWallpapersServer,
+  getTrendingWallpapersServer,
+} from "@/lib/wallpaper-store-server";
+import {
+  getAllWallpapers as getStaticAllWallpapers,
+  getFeaturedWallpapers as getStaticFeaturedWallpapers,
+  getTrendingWallpapers as getStaticTrendingWallpapers,
+} from "./lib/wallpapers";
+import type { WallpaperMetadata } from "@/lib/firestore-types";
+import type { Wallpaper } from "./lib/wallpapers";
+
+/**
+ * Map a Firestore `WallpaperMetadata` doc to the static `Wallpaper`
+ * shape consumed by the client components. Falls back to safe
+ * defaults so an admin edit that hides a field never breaks the
+ * homepage hero or grid.
+ */
+function toWallpaperLike(w: WallpaperMetadata): Wallpaper {
+  return {
+    id: w.id,
+    slug: w.slug,
+    title: w.title,
+    description: w.description ?? "",
+    filename: w.filename,
+    categoryId: w.categoryId,
+    tags: w.tags,
+    resolution: w.resolution,
+    views: w.views ?? 0,
+    downloads: w.downloads ?? 0,
+    likes: w.likes ?? 0,
+    featured: w.featured,
+    trending: w.trending,
+    uploadDate: w.uploadDate,
+  };
+}
 
 const SITE_URL = 'https://tavrynewallpapers.vercel.app';
 const SITE_NAME = 'Tavryne Wallpapers';
@@ -58,11 +94,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
-  const allWallpapers = getAllWallpapers().slice(0, 8);
-  const trendingWallpapers = getTrendingWallpapers().slice(0, 4);
-  const featuredWallpapers = getFeaturedWallpapers().slice(0, 6);
-  const totalCount = getAllWallpapers().length;
+export default async function Home() {
+  const [firestoreAll, firestoreFeatured, firestoreTrending] = await Promise.all([
+    getAllWallpapersServer(8),
+    getFeaturedWallpapersServer(6),
+    getTrendingWallpapersServer(4),
+  ]);
+
+  const allWallpapers: Wallpaper[] = firestoreAll.length > 0
+    ? firestoreAll.map(toWallpaperLike)
+    : getStaticAllWallpapers().slice(0, 8);
+  const featuredWallpapers: Wallpaper[] = firestoreFeatured.length > 0
+    ? firestoreFeatured.map(toWallpaperLike)
+    : getStaticFeaturedWallpapers().slice(0, 6);
+  const trendingWallpapers: Wallpaper[] = firestoreTrending.length > 0
+    ? firestoreTrending.map(toWallpaperLike)
+    : getStaticTrendingWallpapers().slice(0, 4);
+  const totalCount = allWallpapers.length;
 
   // ItemList JSON-LD for the featured showcase
   const itemListJsonLd = {
@@ -76,7 +124,9 @@ export default function Home() {
       position: idx + 1,
       name: w.title,
       url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image: `${SITE_URL}/wallpapers/${w.filename}`,
+      image:
+        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${w.filename}`,
     })),
   };
 
@@ -211,8 +261,8 @@ export default function Home() {
               <h2 id="trending-section-title" className="section-title">Trending Wallpapers</h2>
               <p className="section-description">Most downloaded wallpapers this week</p>
             </div>
-            <Link href="/recent" className="section-link">
-              View all recent
+            <Link href="/popular" className="section-link">
+              View all trending
               <ChevronRight size={16} />
             </Link>
           </div>

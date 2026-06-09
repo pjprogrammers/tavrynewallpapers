@@ -1,30 +1,48 @@
+import './globals.css';
 import './styles.css';
 import { Inter, Montserrat, Poppins } from 'next/font/google';
 import type { Metadata, Viewport } from 'next';
 import { AuthProvider } from '@/lib/auth-context';
+import Providers from './providers';
 import { categories, getAllWallpapers, getFeaturedWallpapers } from './lib/wallpapers';
 
 // ----------------------
 // Fonts Setup
 // ----------------------
+// Only the weights that are actually applied in the app's CSS are
+// requested. Inter is loaded as a variable font (covers 100-900)
+// so body text and headings share a single woff2 download.
+// Heading/UI fonts are loaded with explicit weight arrays so the
+// @font-face rules only emit the exact files we need.
+//
+// All three fonts use `preload: false` to avoid Chrome's
+// "preloaded but not used within a few seconds" warning when a
+// particular weight is not visible above the fold on a given
+// page. The woff2 files are still downloaded on demand via the
+// generated @font-face rules. The first page load of any
+// in-page heading is still effectively instant because the
+// @font-face matches and the browser caches the woff2.
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
+  preload: false,
 });
 
 const montserrat = Montserrat({
   subsets: ['latin'],
   variable: '--font-montserrat',
-  weight: ['400', '500', '600', '700'],
+  weight: ['500', '600', '700'],
   display: 'swap',
+  preload: false,
 });
 
 const poppins = Poppins({
   subsets: ['latin'],
   variable: '--font-poppins',
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['500', '600', '700', '800'],
   display: 'swap',
+  preload: false,
 });
 
 // ----------------------
@@ -175,7 +193,6 @@ export const metadata: Metadata = {
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
     'mobile-web-app-capable': 'yes',
-    'theme-color': '#0a0a0a',
     'color-scheme': 'dark',
     // Windows tile (used by Bing and Windows Start menu)
     'msapplication-TileColor': '#0a0a0a',
@@ -374,7 +391,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <Providers>{children}</Providers>
+        </AuthProvider>
       </body>
     </html>
   );

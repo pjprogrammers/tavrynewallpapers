@@ -100,7 +100,6 @@ Firebase, animated with Three.js + Framer Motion, and built end-to-end on Next.j
     <td width="50%" valign="top">
 
 ### 👤 User Experience
-- Modern profile page with **3D animated background** (Three.js)
 - Tabbed profile: Overview · Favorites · Downloads · Settings
 - Inline editing of display name, bio & avatar
 - GitHub-style avatar modal (upload / preset / URL)
@@ -132,11 +131,11 @@ Firebase, animated with Three.js + Framer Motion, and built end-to-end on Next.j
 
 | 🏠 Home | 🖼️ Wallpaper Detail |
 |:---:|:---:|
-| Hero with 3D particles, search, trending categories | Full-resolution preview, download, like, edit |
+| Hero with search, trending categories | Full-resolution preview, download, like, edit |
 
 | 👤 Profile | 🛡️ Admin Dashboard |
 |:---:|:---:|
-| Three.js animated background, tabs, achievements | Role management, recent edits, moderation |
+| Tabbed profile: Overview · Favorites · Downloads · Settings | Live stats, user leaderboard, daily activity chart, moderation |
 
 | 🔍 Search | ⬆️ Upload |
 |:---:|:---:|
@@ -157,7 +156,7 @@ Firebase, animated with Three.js + Framer Motion, and built end-to-end on Next.j
 | **Framework** | ![Next.js](https://img.shields.io/badge/Next.js_16-000?style=flat-square&logo=next.js&logoColor=white) App Router · React Server Components |
 | **Language** | ![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=flat-square&logo=typescript&logoColor=white) strict mode |
 | **Styling** | ![CSS](https://img.shields.io/badge/CSS_Variables-1572B6?style=flat-square&logo=css3&logoColor=white) + ![Tailwind](https://img.shields.io/badge/Tailwind_4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white) (utilities) |
-| **Animation** | ![Framer Motion](https://img.shields.io/badge/Framer_Motion-12-FF0055?style=flat-square) · ![Three.js](https://img.shields.io/badge/Three.js-+R3F_9-000?style=flat-square&logo=three.js) |
+| **Animation** | ![Framer Motion](https://img.shields.io/badge/Framer_Motion-12-FF0055?style=flat-square) |
 | **Auth & DB** | ![Firebase Auth](https://img.shields.io/badge/Firebase_Auth-FFCA28?style=flat-square&logo=firebase&logoColor=black) · ![Firestore](https://img.shields.io/badge/Firestore-FFCA28?style=flat-square&logo=firebase&logoColor=black) |
 | **Storage** | ![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=flat-square&logo=cloudinary&logoColor=white) (avatars, re-hosted URLs) |
 | **Icons** | ![Lucide](https://img.shields.io/badge/Lucide-React-F56565?style=flat-square) + `react-icons` |
@@ -169,7 +168,6 @@ Firebase, animated with Three.js + Framer Motion, and built end-to-end on Next.j
 
 ### Key libraries
 
-- **[@react-three/fiber](https://docs.pmnd.rs/react-three-fiber)** + **[three](https://threejs.org)** — Three.js particle field on the profile page
 - **[framer-motion](https://www.framer.com/motion/)** — declarative animations across cards, tabs, modals
 - **[react-easy-crop](https://github.com/ValentinH/react-easy-crop)** + **[browser-image-compression](https://github.com/Donaldcwl/browser-image-compression)** — image upload pipeline
 - **[react-masonry-css](https://github.com/paulcollett/react-masonry-css)** — masonry layout for galleries
@@ -326,6 +324,7 @@ GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/serviceAccountKey.json
 | `npm run role <verb> <email> [role...]` | Manage user roles (see `scripts/manage-roles.ts`) |
 | `npm run seed-wallpapers` | Upload `app/lib/wallpapers.ts` → Firestore |
 | `npm run generate-favicons` | Regenerate PWA icons from `app/favicon.ico` |
+| `firebase deploy --only firestore:indexes` | Deploy composite indexes to Firestore |
 
 ### `npm run role` cheat sheet
 
@@ -370,10 +369,9 @@ tavrynewallpapers/
 │   │   ├── login/                          # Sign in
 │   │   └── signup/                         # Sign up
 │   ├── profile/                            # Authenticated profile
+│   │   ├── layout.tsx
 │   │   ├── page.tsx
-│   │   ├── profile.css
-│   │   ├── ParticleField.tsx               # Three.js particle field
-│   │   └── AnimatedBackgroundLazy.tsx       # Dynamic import wrapper
+│   │   └── profile.css
 │   ├── favorites/                          # User favorites
 │   ├── downloads/                          # User downloads history
 │   ├── upload/                             # Submit a new wallpaper
@@ -488,7 +486,6 @@ tavrynewallpapers/
 ### Motion
 
 - **Framer Motion** powers every card, tab indicator, modal and stagger.
-- **Three.js + R3F** drives the particle field behind the profile page.
 - **CSS keyframes** for low-cost loops: `glow`, `float`, `pulse`, `animate-fade-in`, `animate-pulse-subtle`.
 - Spring-based `useScroll` / `useTransform` for scroll progress bars.
 
@@ -673,50 +670,72 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=your_unsigned_preset
 
 ---
 
-## 🛡️ Firebase App Check (reCAPTCHA)
+## 🛡️ Firebase App Check (reCAPTCHA Enterprise)
 
 App Check protects your backend (Firestore, Storage, Functions) from abuse by verifying requests come from your real app instance.
 
-`lib/app-check.ts` ships with a production-safe wrapper that supports **both** standard reCAPTCHA v3 and reCAPTCHA Enterprise.
+This project uses **reCAPTCHA Enterprise exclusively** with a production-grade split-file setup.
 
-### 1 · Get a reCAPTCHA site key
+### File architecture
 
-1. Go to [https://www.google.com/recaptcha/admin](https://www.google.com/recaptcha/admin).
-2. Register a new site:
-   - **Label:** `Tavryne Wallpapers`
-   - **reCAPTCHA type:** Score-based (v3) **or** Enterprise (if you have it).
-   - **Domains:** `localhost`, your Vercel preview domain(s), and `tavrynewallpapers.vercel.app`.
-3. Copy the **Site Key**.
+| File | Purpose | Bundled in production? |
+|:---|:---|:---:|
+| `lib/app-check.ts` | Production core — initializes `ReCaptchaEnterpriseProvider` | ✅ |
+| `lib/app-check.dev.ts` | Debug token `self.FIREBASE_APPCHECK_DEBUG_TOKEN` | ❌ tree-shaken |
+| `app/providers.tsx` | Conditional import (dev-only dynamic import of `.dev`) | ✅ (no debug code) |
 
-### 2 · Add the key to `.env.local`
+### 1 · Enable reCAPTCHA Enterprise API
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → your project.
+2. Enable **reCAPTCHA Enterprise API**.
+3. Create a **Site Key**:
+   - **Type:** Website
+   - **Integration:** Score-based
+   - **Allowed domains:** `localhost`, `tavrynewallpapers.vercel.app`, your custom domains.
+
+### 2 · Add the key to your environment
 
 ```env
-# Standard reCAPTCHA v3
-NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6Lc…
-
-# OR for Enterprise
+# .env.local (dev) + Vercel Project Settings → Production
 NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY=6Lc…
 ```
 
-The helper picks v3 first and falls back to Enterprise automatically.
+Only this single variable is needed. **No v3 fallback** — Enterprise only.
 
-### 3 · Register the key in Firebase
+### 3 · Register the key in Firebase Console
 
 1. Firebase Console → **Build → App Check**.
-2. Click **Apps** → register your web app.
-3. Pick **reCAPTCHA v3** or **reCAPTCHA Enterprise**, paste the same **Site Key**, and **Save**.
-4. For Firestore: click the **enforcement** slider to start enforcing. Start with **monitor-only** for the first 24h to make sure legitimate traffic isn't blocked.
+2. Select your web app.
+3. Choose **reCAPTCHA Enterprise**, paste the Site Key, **Save**.
+4. Set enforcement:
+   - **Firestore → Monitoring** (start here)
+   - **Storage → Monitoring**
+   - Wait 24–48h, verify metrics, then switch to **Enforced**.
 
-### 4 · Optional: debug token for local dev
+### 4 · CSP requirements (already configured)
 
-When developing, your localhost traffic will fail App Check unless you register a debug token:
+`next.config.ts` allows these origins:
 
-```js
-// In your browser DevTools console (only on localhost):
-self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-// Reload — copy the printed debug token, paste it into
-// Firebase Console → App Check → Apps → Manage debug tokens
-```
+| Directive | Origins |
+|:---|:---|
+| `script-src` | `www.google.com`, `www.gstatic.com`, `www.recaptcha.net`, `apis.google.com` |
+| `frame-src` | `www.google.com`, `www.recaptcha.net` |
+| `connect-src` | `content-firebaseappcheck.googleapis.com` |
+
+### 5 · Debug token (local dev only)
+
+On `localhost` the debug token is auto-enabled **only** when `NODE_ENV === "development"`. The file `lib/app-check.dev.ts` is dynamically imported by `providers.tsx` and is **tree-shaken to zero bytes** in production builds.
+
+No manual console steps needed. The Firebase SDK prints the debug token to the console on first request — register it under **Firebase Console → App Check → Manage debug tokens** if needed.
+
+### 6 · Verify it works
+
+| Environment | Console should show |
+|:---|:---|
+| Development | `exchangeDebugToken` (with a printed debug token) |
+| Production | `exchangeRecaptchaEnterpriseToken` (no debug token) |
+
+In production, you should **never** see `exchangeDebugToken` or `App Check debug token:` in the console.
 
 ---
 
@@ -739,25 +758,35 @@ All paths live under `(default)` database.
 | `meta/{docId}` | e.g. `categories`, `tags` | Server-maintained reference data | varies |
 | `rateLimits/{id}` | server-only | **Never** readable from client | — |
 
-### Composite indexes (high-traffic queries)
+### Composite indexes
 
-`firestore.indexes.json` declares these so you don't have to wait for the "missing index" error email:
+`firestore.indexes.json` declares all required indexes — deploy with:
 
-- `wallpapers` by `categoryId` + `featured` + `updatedAt`
-- `wallpapers` by `categoryId` + `updatedAt`
-- `wallpapers` by `featured` + `updatedAt`
-- `wallpapers` by `trending` + `updatedAt`
-- `wallpapers` by `tags` (array-contains) + `updatedAt`
-- `wallpapers` by `updatedAt`
-- `wallpapers` by `lastEditedBy` + `lastEditedAt`
-- `edits` by `wallpaperSlug` + `editedAt`
-- `edits` by `editedBy` + `editedAt`
-- `edits` (collection-group) by `editedAt`
-- `edits` (collection-group) by `editedBy` + `editedAt`
-- `users` by `roles.moderator` + `email`
-- `users` by `roles.admin` + `email`
-- `users` by `roles.admin` + `displayName`
-- `users` by `roles.moderator` + `displayName`
+```bash
+firebase deploy --only firestore:indexes
+```
+
+| Collection | Fields | Query Pattern |
+|:---|:---|:---|
+| `wallpapers` | `categoryId` + `featured` + `updatedAt` DESC | Filter by category + featured, sorted by date |
+| `wallpapers` | `categoryId` + `updatedAt` DESC | Category pages sorted by date |
+| `wallpapers` | `featured` + `updatedAt` DESC | Featured grid |
+| `wallpapers` | `trending` + `updatedAt` DESC | Trending section |
+| `wallpapers` | `tags` (array-contains) + `updatedAt` DESC | Tag-filtered pages |
+| `wallpapers` | `updatedAt` DESC | Recent / all wallpapers |
+| `wallpapers` | `lastEditedBy` + `lastEditedAt` DESC | Admin edit audit |
+| `edits` | `wallpaperSlug` + `editedAt` DESC | Per-wallpaper edit history |
+| `edits` | `editedBy` + `editedAt` DESC | Per-editor audit trail |
+| `edits` (CG) | `editedAt` DESC | Global edit log |
+| `edits` (CG) | `editedBy` + `editedAt` DESC | Editor activity feed |
+| `users` | `roles.moderator` + `email` ASC | Moderator search |
+| `users` | `roles.admin` + `email` ASC | Admin search |
+| `users` | `roles.admin` + `displayName` ASC | Admin directory |
+| `users` | `roles.moderator` + `displayName` ASC | Moderator directory |
+| `users` | `isActive` + `lastLogin` DESC | Active-today queries (admin dashboard) |
+| `downloads` | `downloadedAt` DESC | Recent downloads feed |
+| `downloads` | `wallpaperId` + `downloadedAt` DESC | Per-wallpaper download history |
+| `impressions` | `timestamp` DESC | Analytics queries |
 
 ---
 
@@ -804,12 +833,12 @@ To rotate your own admin claim after losing access, run `npm run role add you@ex
 | `/recent` | `app/recent/page.tsx` | Dynamic | Wallpapers ordered by `uploadDate`. |
 | `/wallpaper/[slug]` | `app/wallpaper/[slug]/page.tsx` | RSC + client | Image preview, like, download (with device presets), share, related, edit-modal trigger for mods. |
 | `/login` · `/signup` | `app/(auth)/…` | Client | Email/Google/GitHub sign-in with strong-password validation. |
-| `/profile` | `app/profile/page.tsx` | Client | 3D particle field, avatar modal (upload/preset/URL), tabs: Overview · Favorites · Downloads · Settings. |
+| `/profile` | `app/profile/page.tsx` | Client | Tabbed profile: Overview · Favorites · Downloads · Settings. Avatar modal (upload/preset/URL). |
 | `/favorites` | `app/favorites/` | Client | Per-user favorites grid. |
 | `/downloads` | `app/downloads/` | Client | Per-user download history. |
 | `/upload` | `app/upload/page.tsx` | Client | Drag-and-drop submit form (signed-in users only). |
 | `/edits` | `app/edits/page.tsx` | ISR 30s | Live moderation log (recent wallpaper edits). |
-| `/admin` | `app/admin/page.tsx` | Server | Admin dashboard (role-gated, noindex). |
+| `/admin` | `app/admin/page.tsx` | Server | Admin dashboard with live Firestore stats (total users, active today, wallpapers, downloads), user leaderboard, 7-day activity chart, recent signups, most-viewed/trending sections. Role-gated, noindex. |
 | `/api/reupload-image` | `app/api/reupload-image/route.ts` | Route handler | Re-hosts an external image URL through Cloudinary (SSRF-protected). |
 | `/sitemap.xml` | `app/sitemap.xml/route.ts` | ISR 1h | Google Image-Sitemap extension for wallpaper detail pages. |
 | `/robots.txt` | `app/robots.ts` | Static | Per-bot allow/disallow rules. |
@@ -1247,7 +1276,6 @@ Built with ❤️ and a lot of caffeine using:
 - [Next.js](https://nextjs.org) — the React framework
 - [Vercel](https://vercel.com) — hosting & edge network
 - [Firebase](https://firebase.google.com) — Auth, Firestore, App Check
-- [Three.js](https://threejs.org) + [react-three-fiber](https://docs.pmnd.rs/react-three-fiber) — 3D
 - [Framer Motion](https://www.framer.com/motion/) — animations
 - [Lucide](https://lucide.dev) + [react-icons](https://react-icons.github.io/react-icons/) — icons
 - [Cloudinary](https://cloudinary.com) — image storage & transformation
@@ -1267,7 +1295,7 @@ Questions, ideas, sponsorship?
 
 <div align="center">
 
-<sub>Made with 💚 using Next.js, Firebase & Three.js</sub>
+<sub>Made with 💚 using Next.js & Firebase</sub>
 
 <br>
 

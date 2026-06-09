@@ -11,10 +11,28 @@
  *
  * Schema:   https://www.sitemaps.org/protocol.html
  * Image ext: https://developers.google.com/search/docs/specialty/image-sitemaps
+ *
+ * The sitemap is generated from Firestore (NOT the static seed) so
+ * any wallpaper added via the admin panel shows up in the sitemap
+ * within a few minutes. Categories and tags also come from Firestore
+ * (with a static fallback) so a new category registered in the DB
+ * gets a URL the moment it exists.
  */
 
-import { categories, tags, getAllWallpapers } from "../lib/wallpapers";
-import type { Wallpaper, WallpaperCategory } from "../lib/wallpapers";
+import {
+  getAllWallpapersServer,
+  listCategoriesServer,
+  listTagsServer,
+} from "@/lib/wallpaper-store-server";
+import {
+  categories as staticCategories,
+  tags as staticTags,
+  getAllWallpapers as getStaticAllWallpapers,
+} from "../lib/wallpapers";
+import {
+  resolveImageUrl,
+  toAbsoluteImageUrl,
+} from "@/lib/wallpaper-image";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -24,11 +42,10 @@ const SITE_NAME = "Tavryne Wallpapers";
 // `uploadDate`.
 const LISTING_LASTMOD = "2026-06-05";
 
-// Generate at build time, cache as static. If you add new wallpapers via the
-// admin panel after deploy, you'll need a redeploy for them to show up in
-// the sitemap (this is a Next.js-static-sitemap limitation).
-export const dynamic = "force-static";
-export const revalidate = 3600; // ISR: rebuild every hour if requested
+// Firestore reads can't run at build time on Vercel workers — the
+// sitemap is regenerated on each request and cached at the edge.
+export const dynamic = "force-dynamic";
+export const revalidate = 900; // 15 min
 
 // -------------------------------------------------------------
 // XML helpers
@@ -57,7 +74,14 @@ interface SitemapImage {
 interface SitemapEntry {
   loc: string;
   lastmod?: string;
-  changefreq?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+  changefreq?:
+    | "always"
+    | "hourly"
+    | "daily"
+    | "weekly"
+    | "monthly"
+    | "yearly"
+    | "never";
   priority?: number;
   images?: SitemapImage[];
 }
@@ -67,7 +91,8 @@ function renderEntry(entry: SitemapEntry): string {
   lines.push("  <url>");
   lines.push(`    <loc>${xmlEscape(entry.loc)}</loc>`);
   if (entry.lastmod) lines.push(`    <lastmod>${entry.lastmod}</lastmod>`);
-  if (entry.changefreq) lines.push(`    <changefreq>${entry.changefreq}</changefreq>`);
+  if (entry.changefreq)
+    lines.push(`    <changefreq>${entry.changefreq}</changefreq>`);
   if (entry.priority !== undefined) {
     lines.push(`    <priority>${entry.priority.toFixed(1)}</priority>`);
   }
@@ -75,10 +100,14 @@ function renderEntry(entry: SitemapEntry): string {
     lines.push("    <image:image>");
     lines.push(`      <image:loc>${xmlEscape(image.url)}</image:loc>`);
     if (image.title) {
-      lines.push(`      <image:title>${xmlEscape(truncate(image.title, 100))}</image:title>`);
+      lines.push(
+        `      <image:title>${xmlEscape(truncate(image.title, 100))}</image:title>`
+      );
     }
     if (image.caption) {
-      lines.push(`      <image:caption>${xmlEscape(truncate(image.caption, 160))}</image:caption>`);
+      lines.push(
+        `      <image:caption>${xmlEscape(truncate(image.caption, 160))}</image:caption>`
+      );
     }
     lines.push("    </image:image>");
   }
@@ -90,11 +119,36 @@ function renderEntry(entry: SitemapEntry): string {
 // Build entries
 // -------------------------------------------------------------
 
-function buildEntries(): SitemapEntry[] {
-  const wallpapers = getAllWallpapers();
+async function buildEntries(): Promise<SitemapEntry[]> {
+  // Pull live data from Firestore. Fall back to the static seed if
+  // Firestore is unavailable (cold start, missing creds, etc.).
+  const [fsWallpapers, fsCategories, fsTags] = await Promise.all([
+    getAllWallpapersServer(2000),
+    listCategoriesServer(),
+    listTagsServer(),
+  ]);
+
+  const wallpapers =
+    fsWallpapers.length > 0
+      ? fsWallpapers
+      : (getStaticAllWallpapers() as unknown as typeof fsWallpapers);
+
+  const categories =
+    fsCategories.length > 0
+      ? fsCategories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          description: c.description,
+        }))
+      : staticCategories;
+
+  const tags =
+    fsTags.length > 0
+      ? fsTags.map((t) => ({ id: t.id, name: t.name }))
+      : staticTags;
+
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-
   const entries: SitemapEntry[] = [];
 
   // Homepage
@@ -145,13 +199,18 @@ function buildEntries(): SitemapEntry[] {
     priority: 0.8,
   });
 
-  // Category pages — get a representative wallpaper image for each
+  // Category pages — each one gets a representative image (the
+  // first wallpaper in the category, using its Firestore imageUrl).
   for (const category of categories) {
-    const firstWallpaper = wallpapers.find((w) => w.categoryId === category.id);
-    const images: SitemapImage[] = firstWallpaper
+    const first = wallpapers.find((w) => w.categoryId === category.id);
+    const imageUrl = first
+      ? toAbsoluteImageUrl(resolveImageUrl(first), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${first.filename}`
+      : null;
+    const images: SitemapImage[] = imageUrl
       ? [
           {
-            url: `${SITE_URL}/wallpapers/${firstWallpaper.filename}`,
+            url: imageUrl,
             title: `${category.name} wallpapers on ${SITE_NAME}`,
             caption: category.description
               ? `${category.description} Download high-quality ${category.name.toLowerCase()} wallpapers.`
@@ -170,11 +229,15 @@ function buildEntries(): SitemapEntry[] {
 
   // Tag pages
   for (const tag of tags) {
-    const firstWallpaper = wallpapers.find((w) => w.tags.includes(tag.id));
-    const images: SitemapImage[] = firstWallpaper
+    const first = wallpapers.find((w) => w.tags.includes(tag.id));
+    const imageUrl = first
+      ? toAbsoluteImageUrl(resolveImageUrl(first), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${first.filename}`
+      : null;
+    const images: SitemapImage[] = imageUrl
       ? [
           {
-            url: `${SITE_URL}/wallpapers/${firstWallpaper.filename}`,
+            url: imageUrl,
             title: `${tag.name} wallpapers on ${SITE_NAME}`,
             caption: `Browse ${tag.name} wallpapers. Free downloads in HD, 4K, and 8K.`,
           },
@@ -189,8 +252,12 @@ function buildEntries(): SitemapEntry[] {
     });
   }
 
-  // Wallpaper pages — each one gets a fully-titled image entry
+  // Wallpaper pages — each one gets a fully-titled image entry.
+  // Hidden wallpapers (`visible === false`) are excluded so they
+  // never appear in search engines.
   for (const wallpaper of wallpapers) {
+    if (wallpaper.visible === false) continue;
+
     const lastmod = wallpaper.uploadDate
       ? new Date(wallpaper.uploadDate).toISOString().slice(0, 10)
       : today;
@@ -203,6 +270,10 @@ function buildEntries(): SitemapEntry[] {
       wallpaper.description?.trim() ||
       `Download ${wallpaper.title} as a free ${wallpaper.resolution ?? "4K"} wallpaper from ${SITE_NAME}.`;
 
+    const imageUrl =
+      toAbsoluteImageUrl(resolveImageUrl(wallpaper), SITE_URL) ??
+      `${SITE_URL}/wallpapers/${wallpaper.filename}`;
+
     entries.push({
       loc: `${SITE_URL}/wallpaper/${wallpaper.slug}`,
       lastmod,
@@ -210,7 +281,7 @@ function buildEntries(): SitemapEntry[] {
       priority: 0.7,
       images: [
         {
-          url: `${SITE_URL}/wallpapers/${wallpaper.filename}`,
+          url: imageUrl,
           title,
           caption,
         },
@@ -225,8 +296,8 @@ function buildEntries(): SitemapEntry[] {
 // Route handler
 // -------------------------------------------------------------
 
-export function GET(): Response {
-  const entries = buildEntries();
+export async function GET(): Promise<Response> {
+  const entries = await buildEntries();
   const body = entries.map(renderEntry).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -240,7 +311,7 @@ ${body}
   return new Response(xml, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Cache-Control": "public, max-age=900, s-maxage=900",
     },
   });
 }

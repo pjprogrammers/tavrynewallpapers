@@ -39,12 +39,7 @@ import "./profile.css";
 
 import Header from "@/app/components/Header";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
-import dynamic from "next/dynamic";
-
-const AnimatedBackground = dynamic(() => import("./AnimatedBackgroundLazy").then(mod => mod.AnimatedBackground), {
-  ssr: false,
-  loading: () => <div className="animated-background" />
-});
+import { AnimatedBackground } from "./AnimatedBackgroundLazy";
 
 type TabKey = "overview" | "favorites" | "downloads" | "settings";
 
@@ -670,6 +665,8 @@ export default function ProfilePage() {
                       <span>Click to upload</span>
                       <input
                         type="file"
+                        id="avatar-file-upload"
+                        name="avatar-file-upload"
                         accept="image/png,image/jpeg,image/gif"
                         onChange={handleFileUpload}
                         disabled={uploadingAvatar}
@@ -718,6 +715,8 @@ export default function ProfilePage() {
                   <div className="avatar-url-area">
                     <input
                       type="text"
+                      id="avatar-url-input"
+                      name="avatar-url-input"
                       placeholder="https://example.com/avatar.jpg"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}

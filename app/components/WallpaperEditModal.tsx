@@ -34,6 +34,10 @@ import {
   Info,
   Tag,
   History,
+  ImageIcon,
+  Link2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import {
@@ -70,8 +74,11 @@ interface FormState {
   tagsInput: string;
   tags: string[];
   resolution: string;
+  imageUrl: string;
+  thumbnailUrl: string;
   featured: boolean;
   trending: boolean;
+  visible: boolean;
   uploadDate: string;
 }
 
@@ -83,8 +90,11 @@ function toFormState(w: WallpaperMetadata): FormState {
     tags: w.tags ? [...w.tags] : [],
     tagsInput: "",
     resolution: w.resolution ?? "3840x2160",
+    imageUrl: w.imageUrl ?? "",
+    thumbnailUrl: w.thumbnailUrl ?? "",
     featured: w.featured ?? false,
     trending: w.trending ?? false,
+    visible: w.visible === false ? false : true,
     uploadDate: w.uploadDate ?? new Date().toISOString().split("T")[0],
   };
 }
@@ -179,8 +189,11 @@ export default function WallpaperEditModal({
         categoryId: form.categoryId,
         tags: form.tags,
         resolution: form.resolution.trim() || undefined,
+        imageUrl: form.imageUrl.trim() || undefined,
+        thumbnailUrl: form.thumbnailUrl.trim() || undefined,
         featured: form.featured,
         trending: form.trending,
+        visible: form.visible,
         uploadDate: form.uploadDate,
       };
 
@@ -285,12 +298,12 @@ export default function WallpaperEditModal({
           {/* Slug / id (read-only) */}
           <div className="edit-form-row">
             <div className="edit-form-field">
-              <label>ID (read-only)</label>
-              <input type="text" value={wallpaper.id} readOnly className="edit-form-readonly" />
+              <label htmlFor="edit-id">ID (read-only)</label>
+              <input id="edit-id" type="text" value={wallpaper.id} readOnly className="edit-form-readonly" />
             </div>
             <div className="edit-form-field">
-              <label>Slug (read-only)</label>
-              <input type="text" value={slug} readOnly className="edit-form-readonly" />
+              <label htmlFor="edit-slug">Slug (read-only)</label>
+              <input id="edit-slug" type="text" value={slug} readOnly className="edit-form-readonly" />
             </div>
           </div>
 
@@ -434,10 +447,49 @@ export default function WallpaperEditModal({
             </div>
           </div>
 
-          {/* Featured + Trending toggles */}
+          {/* Image URLs (Cloudflare R2 / Firebase Storage / CDN-ready) */}
+          <div className="edit-form-row">
+            <div className="edit-form-field">
+              <label htmlFor="edit-imageUrl">
+                <ImageIcon size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                Original image URL
+              </label>
+              <input
+                id="edit-imageUrl"
+                type="url"
+                value={form.imageUrl}
+                onChange={(e) => update("imageUrl", e.target.value)}
+                placeholder="https://cdn.example.com/wallpapers/foo.webp"
+                maxLength={2048}
+              />
+              <div className="edit-form-hint">
+                Absolute URL. Falls back to <code>/wallpapers/{form.title ? "{filename}" : "filename"}</code> if empty.
+              </div>
+            </div>
+            <div className="edit-form-field">
+              <label htmlFor="edit-thumbnailUrl">
+                <Link2 size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                Thumbnail URL
+              </label>
+              <input
+                id="edit-thumbnailUrl"
+                type="url"
+                value={form.thumbnailUrl}
+                onChange={(e) => update("thumbnailUrl", e.target.value)}
+                placeholder="https://cdn.example.com/thumbs/foo.webp"
+                maxLength={2048}
+              />
+              <div className="edit-form-hint">
+                Optional. Used in grids; falls back to imageUrl.
+              </div>
+            </div>
+          </div>
+
+          {/* Featured + Trending + Visibility toggles */}
           <div className="edit-form-row">
             <label className="edit-form-toggle">
               <input
+                id="edit-featured"
                 type="checkbox"
                 checked={form.featured}
                 onChange={(e) => update("featured", e.target.checked)}
@@ -446,11 +498,31 @@ export default function WallpaperEditModal({
             </label>
             <label className="edit-form-toggle">
               <input
+                id="edit-trending"
                 type="checkbox"
                 checked={form.trending}
                 onChange={(e) => update("trending", e.target.checked)}
               />
               <span>Trending</span>
+            </label>
+            <label className="edit-form-toggle">
+              <input
+                id="edit-visible"
+                type="checkbox"
+                checked={form.visible}
+                onChange={(e) => update("visible", e.target.checked)}
+              />
+              {form.visible ? (
+                <>
+                  <Eye size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                  Visible
+                </>
+              ) : (
+                <>
+                  <EyeOff size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                  Hidden
+                </>
+              )}
             </label>
           </div>
 

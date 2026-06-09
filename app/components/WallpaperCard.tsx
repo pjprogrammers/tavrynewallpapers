@@ -14,6 +14,7 @@ import {
 } from "@/lib/use-firestore";
 import { Wallpaper, getCategoryById } from "../lib/wallpapers";
 import { getRecencyBadge } from "@/lib/wallpaper-time";
+import { resolveImageUrl, resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface WallpaperCardProps {
   wallpaper?: Wallpaper;
@@ -92,7 +93,7 @@ const WallpaperCard = ({
     {
       slug: wallpaperData.slug,
       title: wallpaperData.title,
-      thumbnail: `/wallpapers/${wallpaperData.filename}`,
+      thumbnail: resolveThumbnailUrl(wallpaperData) ?? "",
     }
   );
 
@@ -126,7 +127,7 @@ const WallpaperCard = ({
 
     // Direct download
     const link = document.createElement("a");
-    link.href = `/wallpapers/${wallpaperData.filename}`;
+    link.href = resolveImageUrl(wallpaperData) ?? `/wallpapers/${wallpaperData.filename}`;
     link.download = `${wallpaperData.slug || wallpaperData.title}.jpg`;
     document.body.appendChild(link);
     link.click();
@@ -151,7 +152,7 @@ const WallpaperCard = ({
         {/* Image Container */}
         <div className="wallpaper-card-v2-image">
           <Image
-            src={`/wallpapers/${wallpaperData.filename}`}
+            src={resolveThumbnailUrl(wallpaperData) ?? `/wallpapers/${wallpaperData.filename}`}
             alt={wallpaperData.title}
             fill
             className={`wallpaper-card-v2-img ${isLoading ? "loading" : "loaded"}`}

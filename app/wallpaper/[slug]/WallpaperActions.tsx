@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useLike, useViewCount, useDownload, useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../../lib/wallpapers";
+import { resolveImageUrl, resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface WallpaperActionsProps {
   wallpaper: Wallpaper;
@@ -43,7 +44,7 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
     {
       slug: wallpaper.slug,
       title: wallpaper.title,
-      thumbnail: `/wallpapers/${wallpaper.filename}`,
+      thumbnail: resolveThumbnailUrl(wallpaper) ?? `/wallpapers/${wallpaper.filename}`,
     }
   );
 
@@ -112,7 +113,7 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
       // Continue with download even if recording fails
     }
 
-    downloadImage(`/wallpapers/${wallpaper.filename}`, fileName);
+    downloadImage(resolveImageUrl(wallpaper) ?? `/wallpapers/${wallpaper.filename}`, fileName);
     setSelectedResolution(resolution);
   };
 

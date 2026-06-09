@@ -382,6 +382,8 @@ export const AvatarUpload = ({
                 >
                   <input
                     ref={fileInputRef}
+                    id="gh-avatar-file"
+                    name="gh-avatar-file"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/avif"
                     onChange={handleFileSelect}
@@ -453,6 +455,8 @@ export const AvatarUpload = ({
                   <div className="gh-input-wrapper">
                     <input
                       type="url"
+                      id="gh-avatar-url"
+                      name="gh-avatar-url"
                       value={urlInput}
                       onChange={(e) => handleUrlPreview(e.target.value)}
                       placeholder="https://example.com/avatar.png"

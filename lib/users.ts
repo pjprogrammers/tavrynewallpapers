@@ -1,14 +1,19 @@
 /**
- * 👥 USERS
- * ========
+ * 👥 USERS — CLIENT-SAFE SURFACE
+ * ==============================
  *
- * Server-side helpers to read user documents from Firestore.
- * Used by the /admin dashboard to display the current team.
+ * Client-side user helpers (read-only Web SDK reads used by the
+ * `/admin` dashboard client component).
+ *
+ * Server-side READ helpers (Admin SDK, faster + doesn't suffer
+ * the Web-SDK offline-on-server issue) live in
+ * `lib/users-server.ts`. Server Components that need user data
+ * should import directly from `users-server.ts`.
  *
  *   Path: users/{uid}
  *
- * The `roles` field is a denormalized mirror of the Firebase Auth custom
- * claims. See `lib/roles.ts` for the permission helpers and
+ * The `roles` field is a denormalized mirror of the Firebase Auth
+ * custom claims. See `lib/roles.ts` for the permission helpers and
  * `scripts/manage-roles.ts` for the CLI.
  */
 
@@ -26,6 +31,8 @@ import { getDB } from "./firebase";
 import { COLLECTIONS } from "./firestore-types";
 import type { UserRoles } from "./firestore-types";
 
+export type { UserRoles } from "./firestore-types";
+
 /**
  * Shape of a user document as stored in Firestore `users/{uid}`.
  * Only includes the fields we need for the admin dashboard.
@@ -40,27 +47,14 @@ export interface UserSummary {
 }
 
 /**
- * Read all users with the `admin` role.
- */
-export async function getAdminsFromFirestore(
-  pageSize: number = 100
-): Promise<UserSummary[]> {
-  return getUsersByRole("admin", pageSize);
-}
-
-/**
- * Read all users with the `moderator` role.
- */
-export async function getModeratorsFromFirestore(
-  pageSize: number = 100
-): Promise<UserSummary[]> {
-  return getUsersByRole("moderator", pageSize);
-}
-
-/**
  * Read all users with a given role, ordered by displayName.
+ * Client-side, Web SDK. Used by the `/admin` dashboard client
+ * component.
+ *
+ * For server-side reads, import `getUsersByRoleServer` from
+ * `lib/users-server.ts` (Admin SDK).
  */
-async function getUsersByRole(
+export async function getUsersByRole(
   role: "admin" | "moderator",
   pageSize: number
 ): Promise<UserSummary[]> {
@@ -84,9 +78,18 @@ async function getUsersByRole(
   }
 }
 
-/**
- * Read all users (no role filter). For small teams only.
- */
+export async function getAdminsFromFirestore(
+  pageSize: number = 100
+): Promise<UserSummary[]> {
+  return getUsersByRole("admin", pageSize);
+}
+
+export async function getModeratorsFromFirestore(
+  pageSize: number = 100
+): Promise<UserSummary[]> {
+  return getUsersByRole("moderator", pageSize);
+}
+
 export async function getAllUsersFromFirestore(
   pageSize: number = 200
 ): Promise<UserSummary[]> {

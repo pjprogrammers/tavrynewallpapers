@@ -6,6 +6,7 @@ import { useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../lib/wallpapers";
 import Link from "next/link";
 import Image from "next/image";
+import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface WallpaperGridWithStatsProps {
   wallpapers: Wallpaper[];
@@ -28,22 +29,22 @@ function WallpaperCardWithStats({ wallpaper }: WallpaperCardWithStatsProps) {
     if (stats) {
       return {
         downloads: stats.downloads ?? wallpaper.downloads,
-        likes: stats.likes ?? Math.floor(wallpaper.downloads * 0.7),
+        likes: stats.likes ?? wallpaper.likes ?? 0,
         views: stats.views ?? wallpaper.views,
       };
     }
     return {
       downloads: wallpaper.downloads,
-      likes: Math.floor(wallpaper.downloads * 0.7),
+      likes: wallpaper.likes ?? 0,
       views: wallpaper.views,
     };
-  }, [stats, wallpaper.downloads, wallpaper.views]);
+  }, [stats, wallpaper.downloads, wallpaper.likes, wallpaper.views]);
 
   return (
     <Link href={`/wallpaper/${wallpaper.slug}`} className="wallpaper-card-v3">
       <div className="wallpaper-v3-image-wrapper">
         <Image
-          src={`/wallpapers/${wallpaper.filename}`}
+          src={resolveThumbnailUrl(wallpaper) ?? `/wallpapers/${wallpaper.filename}`}
           alt={wallpaper.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

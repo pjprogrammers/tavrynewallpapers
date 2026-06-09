@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import type { Wallpaper } from '../../lib/wallpapers';
+import { resolveThumbnailUrl } from '@/lib/wallpaper-image';
 
 interface CategoryInfo {
   id: string;
@@ -93,7 +94,7 @@ export default function CategoryPageContent({ categoryId, category, initialWallp
     setSelectedTags([]);
   };
 
-  const featuredImage = wallpapers[0]?.filename || null;
+  const featuredImage = resolveThumbnailUrl(wallpapers[0]) ?? wallpapers[0]?.filename ?? null;
 
   if (!category) {
     return null;
@@ -109,7 +110,7 @@ export default function CategoryPageContent({ categoryId, category, initialWallp
               <div className="relative w-full h-full overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background opacity-80" />
                 <Image
-                  src={`/wallpapers/${featuredImage}`}
+                  src={featuredImage}
                   alt={category.name || 'Wallpaper Preview'}
                   fill
                   className="object-cover blur-md"

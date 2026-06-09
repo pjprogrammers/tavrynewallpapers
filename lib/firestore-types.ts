@@ -109,12 +109,49 @@ export interface WallpaperMetadata {
   tags: string[];
   resolution?: string;
   filename: string;
+  /**
+   * Absolute URL of the ORIGINAL image (e.g. 4K).
+   * When set, this is the single source of truth for the image and
+   * the application does not care whether it points at `/public`,
+   * Cloudflare R2, Firebase Storage, or any other CDN.
+   * If absent, the app falls back to `/{filename}` (legacy /public).
+   */
+  imageUrl?: string;
+  /**
+   * Absolute URL of the THUMBNAIL image (smaller, listings-friendly).
+   * Falls back to `imageUrl`, then to `/{filename}`.
+   */
+  thumbnailUrl?: string;
+  /**
+   * Lower-cased copy of `title` for case-insensitive Firestore
+   * search. Maintained by the admin write path.
+   */
+  titleLower?: string;
+  /**
+   * Whether the wallpaper is publicly visible. Hidden wallpapers
+   * stay in the database for audit but never appear in listings,
+   * search, or JSON-LD. Slug URLs continue to render for direct
+   * visitors (with `noindex`) so a moderator preview still works.
+   */
+  visible?: boolean;
   featured?: boolean;
   trending?: boolean;
   uploadDate: string; // ISO date string (e.g. "2024-01-15")
   uploaderId?: string;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
+  /**
+   * Denormalized view/download/like counts mirrored from the
+   * `wallpaperStats` collection. Kept on the wallpaper doc so we
+   * can `orderBy("downloads", "desc")` / `orderBy("views", "desc")`
+   * with no composite index. The `wallpaperStats` collection
+   * remains the source of truth for analytics; the values here are
+   * eventually-consistent snapshots.
+   */
+  views?: number;
+  downloads?: number;
+  likes?: number;
+  favorites?: number;
   /** Audit: who last edited this wallpaper. */
   lastEditedBy?: string;
   lastEditedAt?: Timestamp | Date;
@@ -272,7 +309,10 @@ export interface WallpaperEditPayload {
   categoryId?: string;
   tags?: string[];
   resolution?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
   featured?: boolean;
   trending?: boolean;
+  visible?: boolean;
   uploadDate?: string;
 }

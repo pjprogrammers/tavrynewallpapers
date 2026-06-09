@@ -28,6 +28,8 @@ const SearchBar = ({ onSearch, className = "", placeholder = "Search wallpapers.
         <Search className="search-icon" size={18} />
         <input
           type="text"
+          id="search-wallpapers"
+          name="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="search-input"

@@ -20,6 +20,7 @@ import {
   Settings,
   Shield,
   ChevronDown,
+  TrendingUp,
 } from "lucide-react";
 import SearchBar from "./SearchBar";
 import { useAuth } from "@/lib/auth-context";
@@ -183,6 +184,13 @@ const Header = () => {
           >
             <ImageIcon size={18} className="nav-icon" />
             <span>Featured</span>
+          </Link>
+          <Link
+            href="/popular"
+            className={`nav-link ${isActive("/popular") ? "active" : ""}`}
+          >
+            <TrendingUp size={18} className="nav-icon" />
+            <span>Popular</span>
           </Link>
           <Link href="/all" className={`nav-link ${isActive("/all") ? "active" : ""}`}>
             <Tag size={18} className="nav-icon" />
@@ -443,6 +451,17 @@ const Header = () => {
             >
               <ImageIcon size={20} className="mobile-nav-icon" />
               <span>Featured</span>
+            </Link>
+
+            <Link
+              href="/popular"
+              className={`mobile-nav-link ${
+                isActive("/popular") ? "active" : ""
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <TrendingUp size={20} className="mobile-nav-icon" />
+              <span>Popular</span>
             </Link>
 
             <Link

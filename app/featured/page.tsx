@@ -10,7 +10,11 @@ import {
   getFeaturedWallpapers as getStaticFeatured,
   type Wallpaper,
 } from "../lib/wallpapers";
-import { getFeaturedWallpapersFromFirestore } from "@/lib/wallpaper-store";
+import { getFeaturedWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  resolveImageUrl,
+  toAbsoluteImageUrl,
+} from "@/lib/wallpaper-image";
 import { ArrowLeft } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
@@ -45,7 +49,7 @@ export const metadata: Metadata = {
 };
 
 async function loadFeaturedWallpapers(): Promise<Wallpaper[]> {
-  const fromFs = await getFeaturedWallpapersFromFirestore(200);
+  const fromFs = await getFeaturedWallpapersServer(200);
   if (fromFs.length > 0) {
     return fromFs as unknown as Wallpaper[];
   }
@@ -54,7 +58,11 @@ async function loadFeaturedWallpapers(): Promise<Wallpaper[]> {
 
 export default async function FeaturedPage() {
   const featuredWallpapers = await loadFeaturedWallpapers();
-  const featuredImage = featuredWallpapers[0]?.filename;
+  const featuredImageUrl =
+    toAbsoluteImageUrl(resolveImageUrl(featuredWallpapers[0]), SITE_URL) ??
+    (featuredWallpapers[0]?.filename
+      ? `${SITE_URL}/wallpapers/${featuredWallpapers[0].filename}`
+      : null);
 
   const collectionPage = {
     "@context": "https://schema.org",
@@ -66,10 +74,10 @@ export default async function FeaturedPage() {
     isPartOf: { "@id": `${SITE_URL}/#website` },
     publisher: { "@id": `${SITE_URL}/#organization` },
     inLanguage: "en",
-    ...(featuredImage && {
+    ...(featuredImageUrl && {
       image: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/wallpapers/${featuredImage}`,
+        url: featuredImageUrl,
       },
     }),
   };
@@ -94,7 +102,9 @@ export default async function FeaturedPage() {
       position: idx + 1,
       name: w.title,
       url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image: `${SITE_URL}/wallpapers/${w.filename}`,
+      image:
+        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${w.filename}`,
     })),
   };
 

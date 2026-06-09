@@ -10,7 +10,11 @@ import {
   getRecentWallpapers as getStaticRecent,
   type Wallpaper,
 } from "../lib/wallpapers";
-import { getAllWallpapersFromFirestore } from "@/lib/wallpaper-store";
+import { getAllWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  resolveImageUrl,
+  toAbsoluteImageUrl,
+} from "@/lib/wallpaper-image";
 import { ArrowLeft } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
@@ -54,8 +58,10 @@ export const metadata: Metadata = {
 async function loadRecentWallpapers(): Promise<Wallpaper[]> {
   // Read all from Firestore and sort by uploadDate desc (already in
   // updatedAt order from Firestore — we re-sort by uploadDate to match
-  // the static /recent semantics).
-  const fromFs = await getAllWallpapersFromFirestore(500);
+  // the static /recent semantics). We cap at 200 to avoid pulling
+  // the entire collection on every page load — the grid only shows
+  // a subset anyway.
+  const fromFs = await getAllWallpapersServer(200);
   if (fromFs.length > 0) {
     const sorted = [...fromFs].sort((a, b) => {
       const da = a.uploadDate ? new Date(a.uploadDate).getTime() : 0;
@@ -102,7 +108,9 @@ export default async function RecentPage() {
       position: idx + 1,
       name: w.title,
       url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image: `${SITE_URL}/wallpapers/${w.filename}`,
+      image:
+        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${w.filename}`,
     })),
   };
 

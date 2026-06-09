@@ -1,0 +1,9 @@
+{
+  "extends": [],
+  "hints": {
+    "content-type": "off",
+    "compat-api/css": "off",
+    "compat-api/html": "off"
+  },
+  "ignored": []
+}

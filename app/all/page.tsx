@@ -1,7 +1,11 @@
 import { Metadata } from "next";
 import AllWallpapersContent from "./AllWallpapersContent";
 import { getAllWallpapers as getStaticWallpapers, type Wallpaper } from "../lib/wallpapers";
-import { getAllWallpapersFromFirestore } from "@/lib/wallpaper-store";
+import { getAllWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  resolveImageUrl,
+  toAbsoluteImageUrl,
+} from "@/lib/wallpaper-image";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -47,9 +51,12 @@ export const metadata: Metadata = {
  * Fetch wallpapers with Firestore-first / static-fallback semantics.
  * The Firestore read reflects moderator edits; the static read is the
  * safety net for build time and for un-seeded environments.
+ *
+ * Capped at 200 docs — the listing UI shows a virtualised subset
+ * and we don't need to pull the entire collection server-side.
  */
 async function loadAllWallpapers(): Promise<Wallpaper[]> {
-  const fromFs = await getAllWallpapersFromFirestore(500);
+  const fromFs = await getAllWallpapersServer(200);
   if (fromFs.length > 0) {
     return fromFs.map(toWallpaper);
   }
@@ -102,7 +109,9 @@ export default async function AllWallpapersPage() {
       position: idx + 1,
       name: w.title,
       url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image: `${SITE_URL}/wallpapers/${w.filename}`,
+      image:
+        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+        `${SITE_URL}/wallpapers/${w.filename}`,
     })),
   };
 

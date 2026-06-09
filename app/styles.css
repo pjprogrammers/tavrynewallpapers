@@ -723,6 +723,7 @@ button {
   padding: 0.25rem 0.5rem;
   border-radius: 0.375rem;
   font-size: 0.75rem;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -735,6 +736,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transition: background-color 0.2s ease;
 }
@@ -1290,6 +1292,7 @@ button {
 
 .site-header.scrolled {
   background-color: rgba(10, 10, 10, 0.9);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
@@ -1320,8 +1323,8 @@ button {
 
 .logo-primary {
   background: linear-gradient(to right, var(--primary), var(--secondary));
-  background-clip: text;
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
 }
 
@@ -1482,8 +1485,8 @@ button {
   right: 0;
   width: 280px;
   background: rgba(10, 10, 10, 0.85);
-  backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-xl);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
@@ -1654,8 +1657,8 @@ button {
   right: 0;
   bottom: 0;
   background: rgba(8, 8, 8, 0.78);
-  backdrop-filter: blur(50px) saturate(180%);
   -webkit-backdrop-filter: blur(50px) saturate(180%);
+  backdrop-filter: blur(50px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.7),
@@ -2093,8 +2096,8 @@ main {
 
 .hero-highlight {
   background: linear-gradient(to right, var(--primary), var(--secondary));
-  background-clip: text;
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
 }
 
@@ -2511,6 +2514,7 @@ main {
   background: rgba(255, 255, 255, 0.1);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -2549,6 +2553,7 @@ main {
   background: rgba(0, 0, 0, 0.4);
   padding: 4px 10px;
   border-radius: var(--radius-sm);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -2736,6 +2741,7 @@ main {
   padding: 0.5rem;
   background: rgba(0, 0, 0, 0.6);
   border-radius: var(--radius-md);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -3296,6 +3302,7 @@ main {
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transform: translateY(-20px);
   opacity: 0;
@@ -3317,6 +3324,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transition: all var(--transition-default);
   color: white;
@@ -3504,8 +3512,8 @@ main {
   font-weight: 700;
   margin-bottom: 1rem;
   background: linear-gradient(to right, var(--primary), var(--secondary));
-  background-clip: text;
   -webkit-background-clip: text;
+  background-clip: text;
   color: transparent;
 }
 
@@ -4738,6 +4746,7 @@ html, body {
     rgba(0, 0, 0, 0.3) 30%,
     rgba(0, 0, 0, 0.85) 100%
   );
+  -webkit-backdrop-filter: blur(0px);
   backdrop-filter: blur(0px);
   opacity: 0;
   visibility: hidden;
@@ -4750,6 +4759,7 @@ html, body {
 .glass-card-overlay.active {
   opacity: 1;
   visibility: visible;
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
   backdrop-filter: blur(12px) saturate(1.5);
   background: linear-gradient(
     180deg,
@@ -4823,6 +4833,7 @@ html, body {
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -5106,6 +5117,7 @@ html, body {
   color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   transition: all 0.3s ease;
 }
@@ -5148,6 +5160,7 @@ html, body {
   color: white;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -5332,6 +5345,7 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
   color: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 

@@ -102,6 +102,13 @@ service cloud.firestore {
     /* =========================================================
        📜 WALLPAPER EDIT HISTORY
        Path: wallpaperEditHistory/{wallpaperSlug}/edits/{editId}
+
+       Two match blocks are required so that BOTH a regular
+       collection query AND a `collectionGroup('edits')` query
+       (used by the admin / edits page) succeed. Without the
+       wildcard match below, Firestore rejects the collectionGroup
+       query with "Missing or insufficient permissions" even when
+       the nested match allows `read: if true`.
     ========================================================= */
     match /wallpaperEditHistory/{wallpaperSlug} {
       // Anyone can read the edit history (transparency)
@@ -118,6 +125,17 @@ service cloud.firestore {
         // History is append-only; no updates / deletes from the client.
         allow update, delete: if isAdmin();
       }
+    }
+
+    // ✅ Wildcard match for collectionGroup('edits') queries.
+    // Firestore requires an explicit rule that matches the doc
+    // shape regardless of its parent path. The condition here
+    // mirrors the nested `edits` rule above.
+    match /{path=**}/edits/{editId} {
+      allow read: if true;
+      allow create: if isModerator()
+        && request.resource.data.editedBy == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     /* =========================================================

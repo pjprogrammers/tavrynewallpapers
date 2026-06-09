@@ -451,6 +451,8 @@ export default function UploadPage() {
                         </div>
                         <input
                           type="file"
+                          id="wallpaper-file"
+                          name="wallpaper-file"
                           ref={fileInputRef}
                           onChange={handleFileChange}
                           accept="image/jpeg,image/png,image/webp"

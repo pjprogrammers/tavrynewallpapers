@@ -1,24 +1,52 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import WallpaperGrid from "../components/WallpaperGrid";
 import SearchBar from "../components/SearchBar";
 import CategoryList from "../components/CategoryList";
+import { categories } from "../lib/wallpapers";
+import type { Wallpaper } from "../lib/wallpapers";
+import { resolveImageUrl } from "@/lib/wallpaper-image";
 
-import {
-  categories,
-  searchWallpapers
-} from "../lib/wallpapers";
+interface SearchContentProps {
+  query: string;
+  initialWallpapers: Wallpaper[];
+}
 
-export default function SearchContent() {
+export default function SearchContent({
+  query,
+  initialWallpapers,
+}: SearchContentProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
-  const query = searchParams.get("q") || "";
+  // Server already gave us the indexed results; we re-run a
+  // purely-client filter (resolution / tag) on top of that set
+  // so the page is fully interactive without another round-trip.
+  const [selectedResolution, setSelectedResolution] = useState<string | null>(
+    null
+  );
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  const wallpapers = searchWallpapers(query);
+  const filtered = useMemo(() => {
+    let list = initialWallpapers;
+    if (selectedResolution) {
+      list = list.filter((w) =>
+        w.resolution?.toLowerCase().includes(selectedResolution.toLowerCase())
+      );
+    }
+    if (selectedTag) {
+      list = list.filter((w) => w.tags?.includes(selectedTag));
+    }
+    return list;
+  }, [initialWallpapers, selectedResolution, selectedTag]);
+
+  const liveQuery = searchParams.get("q") ?? query;
+  const headingQuery = liveQuery || "all wallpapers";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -26,40 +54,67 @@ export default function SearchContent() {
 
       <main className="flex-1 pt-20" role="main" id="main-content">
         <div className="container mx-auto px-4">
-
-          {/* Page Title */}
           <h1 className="text-2xl font-bold mb-6">
-            Search results for &ldquo;{query}&rdquo;
+            Search results for &ldquo;{headingQuery}&rdquo;
           </h1>
 
-          {/* Search Bar */}
           <section className="mb-6" aria-label="Search">
             <SearchBar />
           </section>
 
-          {/* Categories */}
           <section className="mb-8" aria-label="Categories">
             <CategoryList categories={categories} />
           </section>
 
-          {/* Results Count */}
+          {initialWallpapers.length > 0 && (
+            <section
+              className="mb-4 flex flex-wrap items-center gap-2"
+              aria-label="Refine results"
+            >
+              <span className="text-sm text-muted-foreground">Filter:</span>
+              {["4K", "8K", "1920x1080", "3840x2160"].map((res) => (
+                <button
+                  key={res}
+                  type="button"
+                  onClick={() =>
+                    setSelectedResolution(selectedResolution === res ? null : res)
+                  }
+                  className={`text-xs px-2 py-1 rounded-full border ${
+                    selectedResolution === res
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  {res}
+                </button>
+              ))}
+              {selectedResolution && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedResolution(null)}
+                  className="text-xs text-muted-foreground hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </section>
+          )}
+
           <section className="mb-4" aria-label="Results count">
             <h2 className="font-bold">
-              {wallpapers.length} Wallpapers Found
+              {filtered.length} Wallpaper{filtered.length !== 1 ? "s" : ""} Found
             </h2>
           </section>
 
-          {/* Wallpapers */}
-          {wallpapers.length > 0 ? (
+          {filtered.length > 0 ? (
             <section aria-label="Search results">
-              <WallpaperGrid wallpapers={wallpapers} />
+              <WallpaperGrid wallpapers={filtered} source="search" />
             </section>
           ) : (
             <div className="text-center py-16">
               <h3 className="mb-4 text-xl">
-                No wallpapers found for &ldquo;{query}&rdquo;
+                No wallpapers found for &ldquo;{headingQuery}&rdquo;
               </h3>
-
               <p className="text-muted-foreground">
                 Try searching with different keywords or browse our categories.
               </p>
