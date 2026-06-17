@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { getRecentEditsFromFirestore } from "@/lib/wallpaper-store";
+import { createSlug } from "@/lib/slug";
 import type { WallpaperEdit } from "@/lib/firestore-types";
 
 export default function RecentEditsContent() {
@@ -86,10 +87,10 @@ export default function RecentEditsContent() {
               <li key={e.id} className="edit-row">
                 <div className="edit-head">
                   <Link
-                    href={`/wallpaper/${e.wallpaperSlug}`}
+                    href={`/wallpaper/${e.after.id ?? e.wallpaperSlug}/${createSlug(e.after.title ?? e.wallpaperSlug)}`}
                     className="edit-wallpaper"
                   >
-                    {e.wallpaperSlug}
+                    {e.after.title ?? e.wallpaperSlug}
                     <ChevronRight size={14} />
                   </Link>
                   <span className="edit-when">{t ? t.toLocaleString() : ""}</span>

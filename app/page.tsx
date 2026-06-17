@@ -8,41 +8,27 @@ import { categories } from "./lib/wallpapers";
 import Link from "next/link";
 import { ChevronRight, Download, Heart, TrendingUp } from "lucide-react";
 import { resolveImageUrl, toAbsoluteImageUrl } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 import {
   getAllWallpapersServer,
   getFeaturedWallpapersServer,
   getTrendingWallpapersServer,
 } from "@/lib/wallpaper-store-server";
-import {
-  getAllWallpapers as getStaticAllWallpapers,
-  getFeaturedWallpapers as getStaticFeaturedWallpapers,
-  getTrendingWallpapers as getStaticTrendingWallpapers,
-} from "./lib/wallpapers";
 import type { WallpaperMetadata } from "@/lib/firestore-types";
-import type { Wallpaper } from "./lib/wallpapers";
 
 /**
- * Map a Firestore `WallpaperMetadata` doc to the static `Wallpaper`
- * shape consumed by the client components. Falls back to safe
- * defaults so an admin edit that hides a field never breaks the
- * homepage hero or grid.
+ * Map a Firestore `WallpaperMetadata` doc to the shape consumed by
+ * client components, falling back to safe defaults so an admin edit
+ * that hides a field never breaks the homepage hero or grid.
+ * The return type is the same as `WallpaperMetadata` (which is the
+ * canonical `Wallpaper` type).
  */
-function toWallpaperLike(w: WallpaperMetadata): Wallpaper {
+function toWallpaperLike(w: WallpaperMetadata): WallpaperMetadata {
   return {
-    id: w.id,
-    slug: w.slug,
-    title: w.title,
-    description: w.description ?? "",
-    filename: w.filename,
-    categoryId: w.categoryId,
-    tags: w.tags,
-    resolution: w.resolution,
+    ...w,
     views: w.views ?? 0,
     downloads: w.downloads ?? 0,
-    likes: w.likes ?? 0,
-    featured: w.featured,
-    trending: w.trending,
-    uploadDate: w.uploadDate,
+    favorites: w.favorites ?? 0,
   };
 }
 
@@ -95,46 +81,65 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [firestoreAll, firestoreFeatured, firestoreTrending] = await Promise.all([
-    getAllWallpapersServer(8),
-    getFeaturedWallpapersServer(6),
-    getTrendingWallpapersServer(4),
-  ]);
+  let firestoreAll: WallpaperMetadata[] = [];
+  let firestoreFeatured: WallpaperMetadata[] = [];
+  let firestoreTrending: WallpaperMetadata[] = [];
 
-  const allWallpapers: Wallpaper[] = firestoreAll.length > 0
+  try {
+    [firestoreAll, firestoreFeatured, firestoreTrending] = await Promise.all([
+      getAllWallpapersServer(8).catch(() => []),
+      getFeaturedWallpapersServer(6).catch(() => []),
+      getTrendingWallpapersServer(4).catch(() => []),
+    ]);
+  } catch {
+    // Fall through to static data
+  }
+
+  const allWallpapers: WallpaperMetadata[] = firestoreAll.length > 0
     ? firestoreAll.map(toWallpaperLike)
-    : getStaticAllWallpapers().slice(0, 8);
-  const featuredWallpapers: Wallpaper[] = firestoreFeatured.length > 0
+    : [];
+  const featuredWallpapers: WallpaperMetadata[] = firestoreFeatured.length > 0
     ? firestoreFeatured.map(toWallpaperLike)
-    : getStaticFeaturedWallpapers().slice(0, 6);
-  const trendingWallpapers: Wallpaper[] = firestoreTrending.length > 0
+    : [];
+  const trendingWallpapers: WallpaperMetadata[] = firestoreTrending.length > 0
     ? firestoreTrending.map(toWallpaperLike)
-    : getStaticTrendingWallpapers().slice(0, 4);
+    : [];
   const totalCount = allWallpapers.length;
 
-  // ItemList JSON-LD for the featured showcase
-  const itemListJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: `${SITE_NAME} — Featured Wallpapers`,
-    url: SITE_URL,
-    numberOfItems: featuredWallpapers.length,
-    itemListElement: featuredWallpapers.map((w, idx) => ({
-      '@type': 'ListItem',
-      position: idx + 1,
-      name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
-      image:
-        toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
-        `${SITE_URL}/wallpapers/${w.filename}`,
-    })),
-  };
+  // JSON-LD schemas for the homepage
+  const homepageSchemas = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: `${SITE_NAME} — Free 4K Anime, Gaming & Cyberpunk Wallpapers`,
+      description: 'Tavryne Wallpapers is a free wallpaper download website featuring high-quality 4K, HD, and 8K anime, gaming, cyberpunk, nature, and aesthetic wallpapers for desktop and mobile.',
+      url: SITE_URL,
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: `${SITE_NAME} — Featured Wallpapers`,
+      url: SITE_URL,
+      numberOfItems: featuredWallpapers.length,
+      itemListElement: featuredWallpapers.map((w, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: w.title,
+        url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
+        image:
+          toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
+          `${SITE_URL}/wallpapers/${w.filename}`,
+      })),
+    },
+  ];
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homepageSchemas) }}
       />
       <div className="page-wrapper">
       <Header />

@@ -1,11 +1,17 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import AllWallpapersContent from "./AllWallpapersContent";
 import { getAllWallpapers as getStaticWallpapers, type Wallpaper } from "../lib/wallpapers";
-import { getAllWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  getAllWallpapersServer,
+  listCategoriesServer,
+  listTagsServer,
+} from "@/lib/wallpaper-store-server";
 import {
   resolveImageUrl,
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -15,37 +21,44 @@ const SITE_NAME = "Tavryne Wallpapers";
 // Firestore queries are sub-100ms so the per-request cost is negligible.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: `All Wallpapers | ${SITE_NAME}`,
-  description: `Browse all wallpapers on ${SITE_NAME}. Free 4K, HD, and 8K anime, gaming, cyberpunk, nature, and aesthetic wallpapers for desktop and mobile.`,
-  keywords: [
-    "all wallpapers",
-    "browse wallpapers",
-    "wallpaper collection",
-    "4K wallpapers",
-    "HD wallpapers",
-    "Tavryne",
-    SITE_NAME,
-  ],
-  alternates: {
-    canonical: `${SITE_URL}/all`,
-  },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: `${SITE_URL}/all`,
-    siteName: SITE_NAME,
+export async function generateMetadata(): Promise<Metadata> {
+  const wallpapers = await loadAllWallpapers();
+  const firstImage = wallpapers.length > 0
+    ? (toAbsoluteImageUrl(resolveImageUrl(wallpapers[0]), SITE_URL) ?? `${SITE_URL}/og-image.png`)
+    : `${SITE_URL}/og-image.png`;
+
+  return {
     title: `All Wallpapers | ${SITE_NAME}`,
-    description: `Browse all wallpapers on ${SITE_NAME}.`,
-    images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `All Wallpapers | ${SITE_NAME}`,
-    description: `Browse all wallpapers on ${SITE_NAME}.`,
-    images: [`${SITE_URL}/og-image.png`],
-  },
-};
+    description: `Browse all ${wallpapers.length} wallpapers on ${SITE_NAME}. Free 4K, HD, and 8K anime, gaming, cyberpunk, nature, and aesthetic wallpapers for desktop and mobile.`,
+    keywords: [
+      "all wallpapers",
+      "browse wallpapers",
+      "wallpaper collection",
+      "4K wallpapers",
+      "HD wallpapers",
+      "Tavryne",
+      SITE_NAME,
+    ],
+    alternates: {
+      canonical: `${SITE_URL}/all`,
+    },
+    openGraph: {
+      type: "website",
+      locale: "en_US",
+      url: `${SITE_URL}/all`,
+      siteName: SITE_NAME,
+      title: `All Wallpapers | ${SITE_NAME}`,
+      description: `Browse all ${wallpapers.length} wallpapers on ${SITE_NAME}.`,
+      images: [{ url: firstImage, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `All Wallpapers | ${SITE_NAME}`,
+      description: `Browse all ${wallpapers.length} wallpapers on ${SITE_NAME}.`,
+      images: [firstImage],
+    },
+  };
+}
 
 /**
  * Fetch wallpapers with Firestore-first / static-fallback semantics.
@@ -73,7 +86,15 @@ function toWallpaper(m: import("@/lib/firestore-types").WallpaperMetadata): Wall
 }
 
 export default async function AllWallpapersPage() {
-  const wallpapers = await loadAllWallpapers();
+  const [wallpapers, categories, tags] = await Promise.all([
+    loadAllWallpapers(),
+    listCategoriesServer(),
+    listTagsServer(),
+  ]);
+
+  const catOptions = categories.map((c) => ({ id: c.id, name: c.name }));
+  const tagOptions = tags.map((t) => ({ id: t.id, name: t.name }));
+
   const totalCount = wallpapers.length;
   const preview = wallpapers.slice(0, 20);
 
@@ -108,7 +129,7 @@ export default async function AllWallpapersPage() {
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
       image:
         toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
         `${SITE_URL}/wallpapers/${w.filename}`,
@@ -126,7 +147,9 @@ export default async function AllWallpapersPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       ))}
-      <AllWallpapersContent initialWallpapers={wallpapers} />
+      <Suspense fallback={<div className="min-h-screen bg-black" />}>
+        <AllWallpapersContent initialWallpapers={wallpapers} categories={catOptions} tags={tagOptions} />
+      </Suspense>
     </>
   );
 }

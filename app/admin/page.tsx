@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AdminContent from "./AdminContent";
+import { hasPermission } from "@/lib/roles";
+import { Layers } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 

@@ -9,11 +9,9 @@ import {
   Menu,
   X,
   Heart,
-  Download,
   Home,
   Image as ImageIcon,
   Grid,
-  Tag,
   LogOut,
   UserPlus,
   User,
@@ -21,6 +19,12 @@ import {
   Shield,
   ChevronDown,
   TrendingUp,
+  Upload,
+  Download,
+  Clock,
+  Layers,
+  List,
+  Tag,
 } from "lucide-react";
 import SearchBar from "./SearchBar";
 import { useAuth } from "@/lib/auth-context";
@@ -185,27 +189,31 @@ const Header = () => {
             <ImageIcon size={18} className="nav-icon" />
             <span>Featured</span>
           </Link>
-          <Link
-            href="/popular"
-            className={`nav-link ${isActive("/popular") ? "active" : ""}`}
-          >
-            <TrendingUp size={18} className="nav-icon" />
-            <span>Popular</span>
-          </Link>
-          <Link href="/all" className={`nav-link ${isActive("/all") ? "active" : ""}`}>
-            <Tag size={18} className="nav-icon" />
-            <span>All Wallpapers</span>
-          </Link>
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`nav-link nav-link-admin ${isActive("/admin") ? "active" : ""}`}
-              aria-label="Admin dashboard"
+          <div className="nav-dropdown">
+            <button
+              className="nav-link nav-dropdown-trigger"
+              type="button"
+              aria-haspopup="true"
             >
-              <Shield size={18} className="nav-icon" />
-              <span>Admin</span>
-            </Link>
-          )}
+              <Layers size={18} className="nav-icon" />
+              <span>Browse</span>
+              <ChevronDown size={14} className="nav-dropdown-chevron" />
+            </button>
+            <div className="nav-dropdown-menu">
+              <Link href="/popular" className="nav-dropdown-item">
+                <TrendingUp size={16} />
+                <span>Popular</span>
+              </Link>
+              <Link href="/recent" className="nav-dropdown-item">
+                <Clock size={16} />
+                <span>Recent</span>
+              </Link>
+              <Link href="/all" className="nav-dropdown-item">
+                <List size={16} />
+                <span>All Wallpapers</span>
+              </Link>
+            </div>
+          </div>
         </nav>
 
         {/* Desktop Actions */}
@@ -220,15 +228,6 @@ const Header = () => {
             <Search size={20} />
           </button>
 
-          {/* Downloads */}
-          <Link
-            href="/downloads"
-            className={`header-icon-button ${isActive("/downloads") ? "active" : ""}`}
-            aria-label="Downloads"
-          >
-            <Download size={20} />
-          </Link>
-
           {/* Favorites */}
           <Link
             href="/favorites"
@@ -238,8 +237,8 @@ const Header = () => {
             <Heart size={20} />
           </Link>
 
-          {/* User Menu */}
-          {user && (
+          {/* User Menu / Auth */}
+          {user ? (
             <div className="user-menu-container">
               <button
                 ref={buttonRef}
@@ -253,8 +252,8 @@ const Header = () => {
                 <Image
                   src={avatarUrl}
                   alt="User avatar"
-                  width={36}
-                  height={36}
+                  width={32}
+                  height={32}
                   unoptimized
                   className="user-avatar"
                 />
@@ -270,13 +269,12 @@ const Header = () => {
                 className={`user-dropdown ${userMenuOpen ? "open" : ""}`}
                 role="menu"
               >
-                {/* Header with user info */}
                 <div className="user-dropdown-header">
                   <Image
                     src={avatarUrl}
                     alt="User avatar"
-                    width={56}
-                    height={56}
+                    width={44}
+                    height={44}
                     unoptimized
                     className="user-dropdown-avatar"
                   />
@@ -285,12 +283,11 @@ const Header = () => {
                       {user.displayName || "User"}
                     </span>
                     <span className="user-dropdown-email">
-                      {user.email}
+                      {user.email ?? ""}
                     </span>
                   </div>
                 </div>
 
-                {/* Menu Items */}
                 <div className="user-dropdown-items">
                   <Link
                     href="/profile"
@@ -299,7 +296,7 @@ const Header = () => {
                     role="menuitem"
                   >
                     <User size={16} />
-                    <span>Your Profile</span>
+                    <span>Profile</span>
                   </Link>
                   <Link
                     href="/favorites"
@@ -308,7 +305,7 @@ const Header = () => {
                     role="menuitem"
                   >
                     <Heart size={16} />
-                    <span>Your Favorites</span>
+                    <span>Favorites</span>
                   </Link>
                   <Link
                     href="/downloads"
@@ -317,16 +314,16 @@ const Header = () => {
                     role="menuitem"
                   >
                     <Download size={16} />
-                    <span>Your Downloads</span>
+                    <span>Downloads</span>
                   </Link>
                   <Link
-                    href="/profile"
+                    href="/upload"
                     className="user-dropdown-item"
                     onClick={handleMenuItemClick}
                     role="menuitem"
                   >
-                    <Settings size={16} />
-                    <span>Settings</span>
+                    <Upload size={16} />
+                    <span>Upload</span>
                   </Link>
                   {isAdmin && (
                     <Link
@@ -336,12 +333,11 @@ const Header = () => {
                       role="menuitem"
                     >
                       <Shield size={16} />
-                      <span>Admin Dashboard</span>
+                      <span>Admin</span>
                     </Link>
                   )}
                 </div>
 
-                {/* Footer with logout */}
                 <div className="user-dropdown-footer">
                   <button
                     onClick={handleLogout}
@@ -354,14 +350,17 @@ const Header = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Not logged in */}
-          {!user && (
-            <Link href="/signup" className="header-signup-btn">
-              <UserPlus size={18} />
-              <span>Sign Up</span>
-            </Link>
+          ) : (
+            <div className="header-auth-buttons">
+              <Link href="/login" className="header-signin-btn">
+                <User size={16} />
+                <span>Sign In</span>
+              </Link>
+              <Link href="/signup" className="header-signup-btn">
+                <UserPlus size={16} />
+                <span>Sign Up</span>
+              </Link>
+            </div>
           )}
         </div>
 
@@ -465,6 +464,14 @@ const Header = () => {
             </Link>
 
             <Link
+              href="/recent"
+              className={`mobile-nav-link ${isActive("/recent") ? "active" : ""}`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Clock size={20} className="mobile-nav-icon" />
+              <span>Recent</span>
+            </Link>
+            <Link
               href="/all"
               className={`mobile-nav-link ${isActive("/all") ? "active" : ""}`}
               onClick={() => setIsMenuOpen(false)}
@@ -508,6 +515,15 @@ const Header = () => {
                 >
                   <Heart size={20} className="mobile-nav-icon" />
                   <span>Favorites</span>
+                </Link>
+
+                <Link
+                  href="/upload"
+                  className="mobile-nav-link"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Upload size={20} className="mobile-nav-icon" />
+                  <span>Upload</span>
                 </Link>
 
                 <div className="mobile-nav-divider" />

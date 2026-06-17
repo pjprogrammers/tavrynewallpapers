@@ -20,6 +20,16 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
+      // GitHub raw content used by bulk-import feature
+      {
+        protocol: "https",
+        hostname: "raw.githubusercontent.com",
+      },
+      // Your own domain for wallpaper images
+      {
+        protocol: "https",
+        hostname: "tavrynewallpapers.vercel.app",
+      },
     ],
 
     // Device sizes for responsive images

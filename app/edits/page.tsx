@@ -46,20 +46,31 @@ export const metadata: Metadata = {
 };
 
 export default function EditsPage() {
-  const breadcrumb = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Recent Edits", item: `${SITE_URL}/edits` },
-    ],
-  };
+  const schemas = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: `Recent Edits | ${SITE_NAME}`,
+      description: `A live activity feed of wallpaper metadata changes on ${SITE_NAME}.`,
+      url: `${SITE_URL}/edits`,
+      isPartOf: { "@id": `${SITE_URL}/#website` },
+      publisher: { "@id": `${SITE_URL}/#organization` },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Recent Edits", item: `${SITE_URL}/edits` },
+      ],
+    },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemas) }}
       />
       <Header />
       <main className="flex-1 pt-20" role="main" id="main-content">

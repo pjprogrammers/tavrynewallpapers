@@ -1,49 +1,42 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import WallpaperGrid from "../components/WallpaperGrid";
 import SearchBar from "../components/SearchBar";
-import CategoryList from "../components/CategoryList";
-import { categories } from "../lib/wallpapers";
+import FilterBar from "../components/filters/FilterBar";
+import FilterDrawer from "../components/filters/FilterDrawer";
+import {
+  useWallpaperFilters,
+  useFilterableWallpapers,
+  getAvailableResolutionTiers,
+} from "@/lib/use-wallpaper-filters";
 import type { Wallpaper } from "../lib/wallpapers";
-import { resolveImageUrl } from "@/lib/wallpaper-image";
 
 interface SearchContentProps {
   query: string;
   initialWallpapers: Wallpaper[];
+  categories: { id: string; name: string }[];
+  tags: { id: string; name: string }[];
 }
 
 export default function SearchContent({
   query,
   initialWallpapers,
+  categories,
+  tags,
 }: SearchContentProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const filters = useWallpaperFilters();
+  const filtered = useFilterableWallpapers(initialWallpapers, filters.values);
 
-  // Server already gave us the indexed results; we re-run a
-  // purely-client filter (resolution / tag) on top of that set
-  // so the page is fully interactive without another round-trip.
-  const [selectedResolution, setSelectedResolution] = useState<string | null>(
-    null
+  const resolutions = useMemo(
+    () => getAvailableResolutionTiers(initialWallpapers),
+    [initialWallpapers]
   );
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    let list = initialWallpapers;
-    if (selectedResolution) {
-      list = list.filter((w) =>
-        w.resolution?.toLowerCase().includes(selectedResolution.toLowerCase())
-      );
-    }
-    if (selectedTag) {
-      list = list.filter((w) => w.tags?.includes(selectedTag));
-    }
-    return list;
-  }, [initialWallpapers, selectedResolution, selectedTag]);
 
   const liveQuery = searchParams.get("q") ?? query;
   const headingQuery = liveQuery || "all wallpapers";
@@ -62,43 +55,30 @@ export default function SearchContent({
             <SearchBar />
           </section>
 
-          <section className="mb-8" aria-label="Categories">
-            <CategoryList categories={categories} />
+          <section className="mb-6" aria-label="Filters">
+            <div className="hidden md:block">
+              <FilterBar
+                filters={filters}
+                categories={categories}
+                tags={tags}
+                resolutions={resolutions}
+                totalCount={initialWallpapers.length}
+                filteredCount={filtered.length}
+                showSearch={false}
+              />
+            </div>
+            <div className="md:hidden">
+              <FilterDrawer
+                filters={filters}
+                categories={categories}
+                tags={tags}
+                resolutions={resolutions}
+                totalCount={initialWallpapers.length}
+                filteredCount={filtered.length}
+                showSearch={false}
+              />
+            </div>
           </section>
-
-          {initialWallpapers.length > 0 && (
-            <section
-              className="mb-4 flex flex-wrap items-center gap-2"
-              aria-label="Refine results"
-            >
-              <span className="text-sm text-muted-foreground">Filter:</span>
-              {["4K", "8K", "1920x1080", "3840x2160"].map((res) => (
-                <button
-                  key={res}
-                  type="button"
-                  onClick={() =>
-                    setSelectedResolution(selectedResolution === res ? null : res)
-                  }
-                  className={`text-xs px-2 py-1 rounded-full border ${
-                    selectedResolution === res
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border hover:border-primary/50"
-                  }`}
-                >
-                  {res}
-                </button>
-              ))}
-              {selectedResolution && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedResolution(null)}
-                  className="text-xs text-muted-foreground hover:underline"
-                >
-                  Clear
-                </button>
-              )}
-            </section>
-          )}
 
           <section className="mb-4" aria-label="Results count">
             <h2 className="font-bold">

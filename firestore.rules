@@ -33,10 +33,6 @@ service cloud.firestore {
       return value is string && (value.size() == 0 || value.matches('^https?://[^\\s]+$'));
     }
 
-    function isValidNumber(value, min, max) {
-      return value is number && value >= min && value <= max;
-    }
-
     /* =========================================================
        👤 USERS COLLECTION
     ========================================================= */
@@ -59,31 +55,72 @@ service cloud.firestore {
         );
 
       // Users can create their own document (during signup)
+      // The `roles` field is blocked to prevent self-escalation.
       allow create: if isOwner(userId)
+        && !request.resource.data.keys().hasAny(['roles'])
         && isValidString(request.resource.data.displayName, 0, 100)
         && isValidString(request.resource.data.email, 0, 254)
         && isValidUrl(request.resource.data.photoURL);
 
       // Only admins can delete a user document
       allow delete: if isAdmin();
+
+      /* =========================================================
+         ❤️ FAVORITES SUBCOLLECTION (per-user)
+         Path: users/{userId}/favorites/{wallpaperId}
+      ========================================================= */
+      match /favorites/{wallpaperId} {
+        // Anyone can see favorites (for UI display)
+        allow read: if true;
+        // Users manage their own favorites — no create/update distinction,
+        // the client uses setDoc with merge to toggle on/off.
+        allow write: if isOwner(userId);
+      }
+
+      /* =========================================================
+         ⬇️ DOWNLOADS SUBCOLLECTION (per-user)
+         Path: users/{userId}/downloads/{wallpaperId}
+      ========================================================= */
+      match /downloads/{wallpaperId} {
+        // Users can read their own download history
+        allow read: if isOwner(userId);
+        // Anyone can record a download (anonymous users can download)
+        allow create: if true;
+        // Users can delete their own downloads
+        allow delete: if isOwner(userId);
+      }
     }
 
     /* =========================================================
        🖼️ WALLPAPERS COLLECTION
     ========================================================= */
     match /wallpapers/{wallpaperSlug} {
-      // Wallpapers are publicly readable
-      allow read: if true;
+      // Public read: only published, non-deleted wallpapers
+      // Moderators/admins can read all (drafts, deleted, etc.)
+      allow read: if isModerator()
+        || (resource.data.published == true && resource.data.deleted != true);
 
-      // Public create (e.g. user uploads) — anyone authenticated
-      // can create a new wallpaper doc with a valid slug.
-      allow create: if isAuthenticated()
-        && isValidString(request.resource.data.slug, 1, 200)
-        && isValidString(request.resource.data.title, 1, 200)
-        && wallpaperSlug == request.resource.data.slug;
+      // Only moderators/admins can create wallpapers.
+      allow create: if isModerator()
+        && isValidString(request.resource.data.title, 1, 200);
 
-      // ✅ Moderators (and admins) can update any wallpaper.
-      // Locked fields (slug, id, filename) cannot be changed.
+      // Anyone can increment tracking counters (views, impressions,
+      // clicks, downloads). Unauthenticated visitors count too.
+      allow update: if (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'views', 'impressions', 'clicks', 'downloads'
+        ])
+      );
+
+      // Authenticated users can toggle the favorites counter
+      // (used by the toggleFavorite transaction).
+      allow update: if isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'favorites'
+        ]);
+
+      // Moderators and admins can update any wallpaper.
+      // Locked fields cannot be changed.
       allow update: if isModerator()
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny([
@@ -127,6 +164,22 @@ service cloud.firestore {
       }
     }
 
+    // ✅ Wildcard match for collectionGroup('favorites') queries
+    // (used by hardDeleteWallpaper to clean up orphaned favorites).
+    match /{path=**}/favorites/{id} {
+      allow read: if true;
+      // Only the owning user can write; admins can delete orphans
+      allow write: if request.auth.uid == resource.data.userId || isAdmin();
+    }
+
+    // ✅ Wildcard match for collectionGroup('downloads') queries
+    // (used by hardDeleteWallpaper to clean up orphaned downloads).
+    match /{path=**}/downloads/{id} {
+      allow read: if request.auth.uid == resource.data.userId || isAdmin();
+      allow create: if true;
+      allow delete: if request.auth.uid == resource.data.userId || isAdmin();
+    }
+
     // ✅ Wildcard match for collectionGroup('edits') queries.
     // Firestore requires an explicit rule that matches the doc
     // shape regardless of its parent path. The condition here
@@ -139,104 +192,34 @@ service cloud.firestore {
     }
 
     /* =========================================================
-       📊 WALLPAPER STATS COLLECTION
+       🏷️ CATEGORIES COLLECTION
     ========================================================= */
-    match /wallpaperStats/{wallpaperId} {
-      // Stats are publicly readable
+    match /categories/{categoryId} {
       allow read: if true;
-
-      // Allow anyone to update stats (atomic increments) for tracking
-      // views/downloads. The client uses `increment()` operations.
-      allow write: if true;
+      allow create: if isModerator()
+        && isValidString(request.resource.data.name, 1, 100);
+      allow update: if isModerator()
+        && request.resource.data.name is string;
+      allow delete: if isModerator();
     }
 
     /* =========================================================
-       👁️ VIEWS SUB-COLLECTION
+       🏷️ TAGS COLLECTION
     ========================================================= */
-    match /wallpapers/{wallpaperId}/views/{viewId} {
-      // Anyone can record views
-      allow read, create: if true;
-    }
-
-    /* =========================================================
-       ❤️ FAVORITES COLLECTION
-    ========================================================= */
-    match /favorites/{favoriteId} {
-      // Anyone can read favorites (to show counts)
+    match /tags/{tagId} {
       allow read: if true;
-
-      // Users can only manage their own favorites
-      // Ensure favoriteId matches userId_wallpaperId pattern
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid
-        && favoriteId == request.auth.uid + '_' + request.resource.data.wallpaperId;
-
-      // Users can only delete their own favorites
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isModerator()
+        && isValidString(request.resource.data.name, 1, 100);
+      allow update: if isModerator()
+        && request.resource.data.name is string;
+      allow delete: if isModerator();
     }
 
     /* =========================================================
-       👍 LIKES COLLECTION
-    ========================================================= */
-    match /likes/{likeId} {
-      // Anyone can read likes (to show counts)
-      allow read: if true;
-
-      // Users can only manage their own likes
-      // Ensure likeId matches userId_wallpaperId pattern
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid
-        && likeId == request.auth.uid + '_' + request.resource.data.wallpaperId;
-
-      // Users can only delete their own likes
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-
-    /* =========================================================
-       ⬇️ DOWNLOADS COLLECTION
-    ========================================================= */
-    match /downloads/{downloadId} {
-      // Users can read their own downloads
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-
-      // Anyone can create downloads (for tracking anonymous downloads)
-      // userId is optional for anonymous downloads
-      allow create: if true;
-
-      // Downloads can only be deleted by authenticated users who own them
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-
-    /* =========================================================
-       👁️ IMPRESSIONS COLLECTION
-    ========================================================= */
-    match /impressions/{impressionId} {
-      // Impressions are publicly readable for analytics
-      allow read: if true;
-
-      // Anyone can record impressions
-      allow create: if true;
-    }
-
-    /* =========================================================
-       👆 CLICKS COLLECTION
-    ========================================================= */
-    match /clicks/{clickId} {
-      // Clicks are publicly readable for analytics
-      allow read: if true;
-
-      // Anyone can record clicks
-      allow create: if true;
-    }
-
-    /* =========================================================
-       🏷️ META COLLECTION (categories, tags seeds)
+       🏷️ META COLLECTION (legacy, kept for seed data)
     ========================================================= */
     match /meta/{docId} {
-      // Public read (for tag/category lists, autocomplete, etc.)
       allow read: if true;
-
-      // Only admins can write
       allow write: if isAdmin();
     }
 

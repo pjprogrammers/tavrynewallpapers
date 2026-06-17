@@ -1,4 +1,4 @@
-import { getAuth, getDB as getDB } from "./firebase";
+import { getAuth, getDB } from "./firebase";
 
 import {
   signInWithEmailAndPassword,
@@ -15,12 +15,14 @@ import {
 
 import {
   doc,
+  getDoc,
   updateDoc,
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
 
-import { createOrUpdateUser, COLLECTIONS } from "./firestore";
+import { createOrUpdateUser } from "./firestore-users";
+import { COLLECTIONS } from "./firestore-types";
 import type { ProviderType } from "./firestore-types";
 
 /* =========================================================
@@ -158,7 +160,7 @@ export const signInWithEmail = async (
       };
     }
 
-    await updateUserLastLogin(user.uid);
+    await upsertUserDocument(user);
 
     return { user, error: null };
   } catch (error: any) {
@@ -234,7 +236,6 @@ export const signInWithGoogle = async () => {
     const user = userCredential.user;
 
     await upsertUserDocument(user);
-    await updateUserLastLogin(user.uid);
 
     return { user, error: null };
   } catch (error: any) {
@@ -259,7 +260,6 @@ export const signInWithGitHub = async () => {
     const user = userCredential.user;
 
     await upsertUserDocument(user);
-    await updateUserLastLogin(user.uid);
 
     return { user, error: null };
   } catch (error: any) {
@@ -365,10 +365,12 @@ const upsertUserDocument = async (user: User) => {
 };
 
 const updateUserLastLogin = async (uid: string) => {
-  const userRef = doc(getDB(), COLLECTIONS.USERS, uid);
-  await updateDoc(userRef, {
-    lastLogin: serverTimestamp(),
-  });
+  try {
+    const userRef = doc(getDB(), COLLECTIONS.USERS, uid);
+    await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
+  } catch {
+    // Non-critical — auth already succeeded, don't block login for a timestamp
+  }
 };
 
 export const updateUserFirestoreProfile = async (
@@ -376,6 +378,13 @@ export const updateUserFirestoreProfile = async (
   data: { displayName?: string; photoURL?: string }
 ) => {
   const userRef = doc(getDB(), COLLECTIONS.USERS, uid);
+
+  const existing = await getDoc(userRef);
+  if (!existing.exists()) {
+    // Don't create an incomplete doc — it must be created by createOrUpdateUser
+    return;
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: serverTimestamp() };
 
   if (data.displayName !== undefined) {
@@ -385,8 +394,7 @@ export const updateUserFirestoreProfile = async (
     updateData.photoURL = data.photoURL;
   }
 
-  // Use setDoc with merge: true to create document if it doesn't exist
-  await setDoc(userRef, updateData, { merge: true });
+  await updateDoc(userRef, updateData as any);
 };
 
 export default {

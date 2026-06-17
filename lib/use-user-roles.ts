@@ -4,13 +4,17 @@
  * 🪝 useUserRoles
  * =================
  *
- * Client-side hook that resolves the current user's roles.
+ * Client-side hook that resolves the current user's roles from two
+ * sources, in priority order:
  *
- *  1. Reads the user document's `roles` mirror (realtime, via
- *     `onSnapshot`).
- *  2. Provides a `refreshToken()` helper that forces an ID-token
- *     refresh, so freshly-assigned custom claims take effect
- *     immediately (tokens are normally valid for 1 hour).
+ *  1. **Firebase Auth custom claims** (via `getIdTokenResult`). This is
+ *     the authoritative source set by `manage-roles.ts` / Admin SDK.
+ *  2. **Firestore `users/{uid}.roles` mirror** (via `onSnapshot`). This
+ *     is a denormalized copy for fast UI reads.
+ *
+ * The two sources are merged, with custom claims taking precedence —
+ * so a moderator whose Firestore doc hasn't been backfilled yet will
+ * still see the correct UI.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -26,31 +30,41 @@ import {
   isAdmin as isAdminFn,
   isModerator as isModeratorFn,
   hasRole as hasRoleFn,
+  getRolesFromClaims,
 } from "./roles";
 
 export interface UseUserRolesResult {
-  /**
-   * The mirror from `users/{uid}.roles`.
-   * Defaults to `{ admin: false, moderator: false }` when not loaded
-   * (always non-null for ergonomic destructuring).
-   */
   roles: UserRoles;
-  /** Loading state while we fetch the mirror. */
   loading: boolean;
-  /** True if the user has the `admin` role. */
   isAdmin: boolean;
-  /** True if the user has the `moderator` (or `admin`) role. */
   isModerator: boolean;
-  /** True if the user can edit any wallpaper. */
   canEdit: boolean;
-  /** True if the user can manage roles. */
   canManage: boolean;
-  /** Force a token refresh so freshly-assigned custom claims take effect. */
   refreshToken: () => Promise<void>;
-  /** Whether the user holds a given role. */
   hasRole: (role: "admin" | "moderator") => boolean;
-  /** Error from the realtime subscription, if any. */
   error: Error | null;
+}
+
+/** Merge custom claims (authoritative) with Firestore mirror, claims win. */
+function mergeRoles(
+  mirror: UserRoles | null,
+  claims: { admin: boolean; moderator: boolean } | null,
+): UserRoles {
+  const base: UserRoles = {
+    admin: false,
+    moderator: false,
+    lastUpdated: new Date(),
+  };
+  if (mirror) {
+    base.admin = mirror.admin === true;
+    base.moderator = mirror.moderator === true;
+    base.lastUpdated = mirror.lastUpdated ?? new Date();
+  }
+  if (claims) {
+    if (claims.admin) base.admin = true;
+    if (claims.moderator) base.moderator = true;
+  }
+  return base;
 }
 
 export function useUserRoles(): UseUserRolesResult {
@@ -71,50 +85,66 @@ export function useUserRoles(): UseUserRolesResult {
     setError(null);
 
     const ref = doc(getDB(), COLLECTIONS.USERS, user.uid);
-    let unsubscribe: Unsubscribe = () => {};
+    let unsubFirestore: Unsubscribe = () => {};
+
+    const handleRoles = (mirror: UserRoles | null) => {
+      user.getIdTokenResult().then((tokenResult) => {
+        const claims = tokenResult.claims;
+        setRoles(
+          mergeRoles(mirror, {
+            admin: claims.admin === true,
+            moderator: claims.moderator === true,
+          }),
+        );
+        setLoading(false);
+      }).catch(() => {
+        // Token result failed — use mirror alone (or null if no mirror)
+        setRoles(mirror);
+        setLoading(false);
+      });
+    };
+
     try {
-      unsubscribe = onSnapshot(
+      unsubFirestore = onSnapshot(
         ref,
         (snap) => {
-          if (snap.exists()) {
-            const data = snap.data();
-            setRoles((data.roles as UserRoles | undefined) ?? null);
-          } else {
-            setRoles(null);
-          }
-          setLoading(false);
+          const mirror = snap.exists()
+            ? (snap.data().roles as UserRoles | undefined) ?? null
+            : null;
+          handleRoles(mirror);
         },
         (err) => {
-          // Permission errors are common (e.g. before the user doc is
-          // created). They should not crash the hook.
-           
           console.warn("[useUserRoles] snapshot error:", err.message);
+          // Token result may still have claims
+          handleRoles(null);
           setError(err);
-          setLoading(false);
-        }
+        },
       );
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)));
       setLoading(false);
     }
 
-    return () => unsubscribe();
+    return () => unsubFirestore();
   }, [user]);
 
   const refreshToken = useCallback(async () => {
     if (!user) return;
     try {
-      // `true` forces a refresh of the ID token, which is required
-      // for the client to pick up freshly-set custom claims.
-      await user.getIdToken(true);
-      // Also re-fetch the user document mirror to be safe.
+      const tokenResult = await user.getIdTokenResult(true);
+      const claims = tokenResult.claims ?? {};
       const ref = doc(getDB(), COLLECTIONS.USERS, user.uid);
       const snap = await import("firebase/firestore").then((m) => m.getDoc(ref));
-      if (snap.exists()) {
-        setRoles((snap.data().roles as UserRoles | undefined) ?? null);
-      }
+      const mirror = snap.exists()
+        ? (snap.data().roles as UserRoles | undefined) ?? null
+        : null;
+      setRoles(
+        mergeRoles(mirror, {
+          admin: claims?.admin === true,
+          moderator: claims?.moderator === true,
+        }),
+      );
     } catch (err) {
-       
       console.warn("[useUserRoles] token refresh failed:", err);
     }
   }, [user]);

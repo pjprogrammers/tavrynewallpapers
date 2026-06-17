@@ -19,6 +19,7 @@ import {
   resolveImageUrl,
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 import { ArrowLeft } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
@@ -134,7 +135,7 @@ export default async function PopularPage() {
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
       image:
         toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
         `${SITE_URL}/wallpapers/${w.filename}`,

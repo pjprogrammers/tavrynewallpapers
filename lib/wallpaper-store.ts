@@ -28,6 +28,7 @@ import {
   limit as limitFn,
   getDocs,
   writeBatch,
+  runTransaction,
   type Unsubscribe,
   onSnapshot,
   Timestamp,
@@ -40,68 +41,16 @@ import type {
   WallpaperEdit,
   WallpaperEditPayload,
 } from "./firestore-types";
+import { withResolutionTag } from "./resolution-tiers";
+import {
+  normalizeWallpaper,
+  formatAspectRatio,
+  deriveOrientation,
+  coerceDate,
+} from "./wallpaper-utils";
 
 // Re-export the edit history types for consumers
 export type { WallpaperEdit, WallpaperEditPayload } from "./firestore-types";
-
-/* =========================================================
-   🔧 SHARED HELPERS
-========================================================= */
-
-function coerceDate(v: unknown): Date | undefined {
-  if (!v) return undefined;
-  if (v instanceof Date) return v;
-  if (v instanceof Timestamp) return v.toDate();
-  if (typeof v === "object" && v !== null && "toDate" in v) {
-    try {
-      return (v as { toDate: () => Date }).toDate();
-    } catch {
-      return undefined;
-    }
-  }
-  if (typeof v === "string" || typeof v === "number") {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? undefined : d;
-  }
-  return undefined;
-}
-
-function normalizeWallpaper(
-  slug: string,
-  data: Record<string, unknown>
-): WallpaperMetadata {
-  const createdAt = coerceDate(data.createdAt) ?? new Date();
-  const updatedAt = coerceDate(data.updatedAt) ?? createdAt;
-  const title = (data.title as string) ?? slug;
-  return {
-    slug,
-    id: data.id != null ? String(data.id) : slug,
-    title,
-    description: (data.description as string) ?? "",
-    categoryId: (data.categoryId as string) ?? "abstract",
-    tags: Array.isArray(data.tags) ? (data.tags as string[]) : [],
-    resolution: (data.resolution as string) ?? "3840x2160",
-    filename: (data.filename as string) ?? `${slug}.jpg`,
-    imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : undefined,
-    thumbnailUrl:
-      typeof data.thumbnailUrl === "string" ? data.thumbnailUrl : undefined,
-    titleLower:
-      typeof data.titleLower === "string"
-        ? data.titleLower
-        : title.toLowerCase(),
-    visible: data.visible === undefined ? true : Boolean(data.visible),
-    featured: Boolean(data.featured),
-    trending: Boolean(data.trending),
-    views: typeof data.views === "number" ? data.views : 0,
-    downloads: typeof data.downloads === "number" ? data.downloads : 0,
-    likes: typeof data.likes === "number" ? data.likes : 0,
-    favorites: typeof data.favorites === "number" ? data.favorites : 0,
-    uploadDate:
-      (data.uploadDate as string) ?? createdAt.toISOString().slice(0, 10),
-    createdAt,
-    updatedAt,
-  };
-}
 
 /* =========================================================
    🔁 CLIENT-SIDE SUBSCRIPTIONS (realtime)
@@ -258,11 +207,11 @@ export async function getAllWallpapersFromFirestore(
     const q = query(ref, orderBy("updatedAt", "desc"), limitFn(pageSize));
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
     return list;
   } catch (err) {
     console.warn(
@@ -286,11 +235,11 @@ export async function getFeaturedWallpapersFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
     return list;
   } catch (err) {
     console.warn(
@@ -314,11 +263,11 @@ export async function getTrendingWallpapersFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
     return list;
   } catch (err) {
     console.warn(
@@ -343,11 +292,11 @@ export async function getWallpapersByCategoryFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
     return list;
   } catch (err) {
     console.warn(
@@ -385,11 +334,11 @@ export async function getRelatedWallpapersFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (w.deleted || !w.published) return;
+      list.push(w);
+    });
     return list
       .filter((w) => w.visible !== false)
       .filter((w) => w.slug !== excludeSlug)
@@ -420,12 +369,12 @@ export async function getPopularWallpapersFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
-    return list.filter((w) => w.visible !== false);
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
+    return list;
   } catch (err) {
     console.warn(
       "[wallpaper-store] getPopularWallpapersFromFirestore failed:",
@@ -452,12 +401,12 @@ export async function getMostViewedWallpapersFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
-    return list.filter((w) => w.visible !== false);
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
+    return list;
   } catch (err) {
     console.warn(
       "[wallpaper-store] getMostViewedWallpapersFromFirestore failed:",
@@ -529,6 +478,34 @@ export async function getDraftsFromFirestore(
   }
 }
 
+export async function getUnpublishedFromFirestore(
+  pageSize: number = 200
+): Promise<WallpaperMetadata[]> {
+  try {
+    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
+    const q = query(
+      ref,
+      where("published", "==", false),
+      orderBy("updatedAt", "desc"),
+      limitFn(pageSize)
+    );
+    const snap = await getDocs(q);
+    const list: WallpaperMetadata[] = [];
+    snap.forEach((d) =>
+      list.push(
+        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
+      )
+    );
+    return list;
+  } catch (err) {
+    console.warn(
+      "[wallpaper-store] getUnpublishedFromFirestore failed:",
+      err
+    );
+    return [];
+  }
+}
+
 export async function getWallpapersByTagFromFirestore(
   tag: string,
   pageSize: number = 200
@@ -543,11 +520,11 @@ export async function getWallpapersByTagFromFirestore(
     );
     const snap = await getDocs(q);
     const list: WallpaperMetadata[] = [];
-    snap.forEach((d) =>
-      list.push(
-        normalizeWallpaper(d.id, d.data() as Record<string, unknown>)
-      )
-    );
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (!w.published || w.deleted) return;
+      list.push(w);
+    });
     return list;
   } catch (err) {
     console.warn(
@@ -649,7 +626,9 @@ export async function getWallpaperBySlugFromFirestore(
     const ref = doc(getDB(), COLLECTIONS.WALLPAPERS, slug);
     const snap = await getDoc(ref);
     if (!snap.exists()) return null;
-    return normalizeWallpaper(slug, snap.data() as Record<string, unknown>);
+    const w = normalizeWallpaper(slug, snap.data() as Record<string, unknown>);
+    if (!w.published || w.deleted) return null;
+    return w;
   } catch (err) {
     console.warn(
       `[wallpaper-store] getWallpaperBySlugFromFirestore(${slug}) failed:`,
@@ -679,12 +658,18 @@ export function diffWallpaperFields(
     "categoryId",
     "tags",
     "resolution",
+    "width",
+    "height",
+    "aspectRatio",
+    "orientation",
     "imageUrl",
     "thumbnailUrl",
     "featured",
     "trending",
     "visible",
-    "uploadDate",
+    "published",
+    "deleted",
+    "storageProvider",
   ];
 
   for (const field of editableFields) {
@@ -732,6 +717,16 @@ export function validateWallpaperEdit(payload: WallpaperEditPayload): void {
       }
     }
   }
+  if (payload.width !== undefined) {
+    if (typeof payload.width !== "number" || payload.width < 1 || payload.width > 32768 || !Number.isInteger(payload.width)) {
+      throw new Error("Width must be an integer between 1 and 32768.");
+    }
+  }
+  if (payload.height !== undefined) {
+    if (typeof payload.height !== "number" || payload.height < 1 || payload.height > 32768 || !Number.isInteger(payload.height)) {
+      throw new Error("Height must be an integer between 1 and 32768.");
+    }
+  }
   if (payload.resolution !== undefined) {
     if (
       typeof payload.resolution !== "string" ||
@@ -740,14 +735,6 @@ export function validateWallpaperEdit(payload: WallpaperEditPayload): void {
       throw new Error(
         'Resolution must match pattern "WIDTHxHEIGHT" (e.g. "3840x2160").'
       );
-    }
-  }
-  if (payload.uploadDate !== undefined) {
-    if (
-      typeof payload.uploadDate !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(payload.uploadDate)
-    ) {
-      throw new Error("uploadDate must be an ISO date string (YYYY-MM-DD).");
     }
   }
   if (payload.imageUrl !== undefined) {
@@ -807,9 +794,25 @@ export async function applyWallpaperEdit(
     updatedAt: serverTimestamp(),
     lastEditedBy: editor.uid,
     lastEditedAt: serverTimestamp(),
+    updatedBy: editor.uid,
   };
   if (update.title !== undefined) {
     writePayload.titleLower = update.title.toLowerCase();
+  }
+
+  // Recalculate derived fields when dimensions change
+  if (update.width !== undefined || update.height !== undefined) {
+    const newWidth = update.width ?? before.width;
+    const newHeight = update.height ?? before.height;
+    if (newWidth != null && newHeight != null) {
+      const nw = Number(newWidth);
+      const nh = Number(newHeight);
+      const tiered = withResolutionTag(update.tags ?? before.tags, nw, nh);
+      writePayload.tags = tiered;
+      update.tags = tiered;
+      writePayload.aspectRatio = formatAspectRatio(nw, nh);
+      writePayload.orientation = deriveOrientation(nw, nh);
+    }
   }
 
   // `update` is typed as `WithFieldValue<T>` which our loose
@@ -854,6 +857,25 @@ export async function getWallpaperEditHistory(
   return edits;
 }
 
+async function getNextWallpaperId(): Promise<string> {
+  const counterRef = doc(getDB(), COLLECTIONS.WALLPAPERS, "--counter--");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await runTransaction(getDB(), async (tx) => {
+        const snap = await tx.get(counterRef);
+        const nextId = (snap.data()?.nextId as number ?? 100) + 1;
+        tx.set(counterRef, { nextId }, { merge: true });
+        return nextId;
+      });
+      return String(result);
+    } catch {
+      await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+    }
+  }
+  // Fallback: use timestamp-based ID
+  return String(Date.now());
+}
+
 export async function upsertWallpaper(
   wallpaper: Omit<WallpaperMetadata, "createdAt" | "updatedAt"> & {
     createdAt?: Timestamp | Date;
@@ -862,15 +884,254 @@ export async function upsertWallpaper(
 ): Promise<void> {
   const ref = doc(getDB(), COLLECTIONS.WALLPAPERS, wallpaper.slug);
   const existing = await getDoc(ref);
-  const baseUpdate = {
-    ...wallpaper,
+  const isNew = !existing.exists();
+  // Omit slug from stored data — the document ID is the slug, no need to store it as a field.
+  const { slug: _slug, ...data } = wallpaper;
+  const firestoreData: Record<string, unknown> = {
+    ...data,
     updatedAt: serverTimestamp(),
     createdAt:
       existing.exists() && existing.data().createdAt
         ? existing.data().createdAt
         : wallpaper.createdAt || serverTimestamp(),
   };
-  await setDoc(ref, baseUpdate, { merge: true });
+  if (data.width != null && data.height != null && Number(data.width) > 0 && Number(data.height) > 0) {
+    firestoreData.aspectRatio = formatAspectRatio(Number(data.width), Number(data.height));
+    firestoreData.orientation = deriveOrientation(Number(data.width), Number(data.height));
+    firestoreData.tags = withResolutionTag(
+      Array.isArray(data.tags) ? data.tags : [],
+      Number(data.width),
+      Number(data.height),
+    );
+  } else {
+    firestoreData.aspectRatio = null;
+    firestoreData.orientation = null;
+  }
+  if (isNew) {
+    firestoreData.createdBy = data.uploaderId ?? data.createdBy ?? null;
+    firestoreData.uploadDate = new Date().toISOString();
+  } else {
+    // Preserve the original upload date — never overwrite it.
+    delete firestoreData.uploadDate;
+  }
+  firestoreData.updatedBy = data.uploaderId ?? data.lastEditedBy ?? data.updatedBy ?? null;
+  await setDoc(ref, firestoreData, { merge: true });
+}
+
+export async function upsertWallpaperWithNewId(
+  wallpaper: Omit<WallpaperMetadata, "createdAt" | "updatedAt" | "slug" | "id"> & {
+    createdAt?: Timestamp | Date;
+    updatedAt?: Timestamp | Date;
+  }
+): Promise<string> {
+  const id = await getNextWallpaperId();
+  const now = new Date();
+  const entry: Omit<WallpaperMetadata, "createdAt" | "updatedAt"> & {
+    createdAt?: Timestamp | Date;
+    updatedAt?: Timestamp | Date;
+  } = {
+    ...wallpaper,
+    slug: id,
+    id,
+    titleLower: wallpaper.title.toLowerCase(),
+    createdAt: wallpaper.createdAt ?? now,
+    updatedAt: wallpaper.updatedAt ?? now,
+  };
+  await upsertWallpaper(entry);
+  return id;
+}
+
+/* =========================================================
+   🗑️ SOFT DELETE
+========================================================= */
+
+async function addAuditEntry(
+  slug: string,
+  action: string,
+  editor: { uid: string; displayName?: string; email?: string },
+  extra: Record<string, unknown> = {}
+): Promise<void> {
+  const historyRef = doc(
+    getDB(),
+    COLLECTIONS.WALLPAPER_EDIT_HISTORY,
+    slug,
+    SUB_COLLECTIONS.WALLPAPER_EDITS,
+    `${Date.now()}_${editor.uid}`
+  );
+  await setDoc(historyRef, {
+    wallpaperSlug: slug,
+    editedBy: editor.uid,
+    editedByName: editor.displayName ?? editor.uid,
+    editedByEmail: editor.email ?? "",
+    changes: { "system.action": { from: null, to: action } },
+    after: {},
+    editedAt: serverTimestamp(),
+    ...extra,
+  });
+}
+
+export async function softDeleteWallpaper(
+  slug: string,
+  editor?: { uid: string; displayName?: string; email?: string }
+): Promise<void> {
+  const ref = doc(getDB(), COLLECTIONS.WALLPAPERS, slug);
+  await setDoc(ref, { deleted: true, updatedAt: serverTimestamp(), updatedBy: editor?.uid ?? null }, { merge: true });
+  if (editor) {
+    await addAuditEntry(slug, "soft-delete", editor);
+  }
+}
+
+export async function restoreWallpaper(
+  slug: string,
+  editor?: { uid: string; displayName?: string; email?: string }
+): Promise<void> {
+  const ref = doc(getDB(), COLLECTIONS.WALLPAPERS, slug);
+  await setDoc(ref, { deleted: false, updatedAt: serverTimestamp(), updatedBy: editor?.uid ?? null }, { merge: true });
+  if (editor) {
+    await addAuditEntry(slug, "restore", editor);
+  }
+}
+
+export async function getDeletedWallpapersFromFirestore(
+  pageSize: number = 200
+): Promise<WallpaperMetadata[]> {
+  try {
+    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
+    const q = query(
+      ref,
+      where("deleted", "==", true),
+      orderBy("updatedAt", "desc"),
+      limitFn(pageSize)
+    );
+    const snap = await getDocs(q);
+    const list: WallpaperMetadata[] = [];
+    snap.forEach((d) =>
+      list.push(normalizeWallpaper(d.id, d.data() as Record<string, unknown>))
+    );
+    return list;
+  } catch (err) {
+    console.warn("[wallpaper-store] getDeletedWallpapersFromFirestore failed:", err);
+    return [];
+  }
+}
+
+/* =========================================================
+   🔍 UNIQUENESS CHECKS
+========================================================= */
+
+export async function checkTitleExists(
+  title: string,
+  excludeId?: string
+): Promise<boolean> {
+  try {
+    return await runTransaction(getDB(), async (tx) => {
+      const q = query(
+        collection(getDB(), COLLECTIONS.WALLPAPERS),
+        where("titleLower", "==", title.toLowerCase().trim()),
+        limitFn(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return false;
+      if (excludeId) {
+        const candidate = snap.docs[0];
+        const data = candidate.data();
+        if (String(data.id) === excludeId) return false;
+      }
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+export async function checkImageUrlExists(
+  imageUrl: string,
+  excludeId?: string
+): Promise<boolean> {
+  try {
+    return await runTransaction(getDB(), async (tx) => {
+      const q = query(
+        collection(getDB(), COLLECTIONS.WALLPAPERS),
+        where("imageUrl", "==", imageUrl),
+        limitFn(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return false;
+      if (excludeId) {
+        const candidate = snap.docs[0];
+        const data = candidate.data();
+        if (String(data.id) === excludeId) return false;
+      }
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/* =========================================================
+   📋 BATCH OPERATIONS
+========================================================= */
+
+export async function batchUpdateWallpapers(
+  slugs: string[],
+  fields: Record<string, unknown>,
+  editor: { uid: string; displayName?: string; email?: string },
+  actionLabel?: string
+): Promise<void> {
+  if (slugs.length === 0) return;
+  const db = getDB();
+  const now = serverTimestamp();
+  const BATCH_LIMIT = 500;
+  for (let i = 0; i < slugs.length; i += BATCH_LIMIT) {
+    const chunk = slugs.slice(i, i + BATCH_LIMIT);
+    const batch = writeBatch(db);
+    for (const slug of chunk) {
+      const ref = doc(db, COLLECTIONS.WALLPAPERS, slug);
+      batch.update(ref, { ...fields, updatedAt: now, updatedBy: editor.uid } as any);
+      if (actionLabel) {
+        const historyRef = doc(
+          db,
+          COLLECTIONS.WALLPAPER_EDIT_HISTORY,
+          slug,
+          SUB_COLLECTIONS.WALLPAPER_EDITS,
+          `${Date.now()}_${editor.uid}_${slug}`
+        );
+        batch.set(historyRef, {
+          wallpaperSlug: slug,
+          editedBy: editor.uid,
+          editedByName: editor.displayName ?? editor.uid,
+          editedByEmail: editor.email ?? "",
+          changes: { "system.batch": { from: null, to: actionLabel } },
+          after: {},
+          editedAt: now,
+        });
+      }
+    }
+    await batch.commit();
+  }
+}
+
+export async function getAllWallpapersForStudio(
+  pageSize: number = 500,
+  sortField: string = "updatedAt",
+  sortDir: "asc" | "desc" = "desc"
+): Promise<WallpaperMetadata[]> {
+  try {
+    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
+    const q = query(ref, orderBy(sortField, sortDir), limitFn(pageSize));
+    const snap = await getDocs(q);
+    const list: WallpaperMetadata[] = [];
+    snap.forEach((d) => {
+      const w = normalizeWallpaper(d.id, d.data() as Record<string, unknown>);
+      if (w.deleted) return;
+      list.push(w);
+    });
+    return list;
+  } catch (err) {
+    console.warn("[wallpaper-store] getAllWallpapersForStudio failed:", err);
+    return [];
+  }
 }
 
 /* =========================================================
@@ -880,7 +1141,4 @@ export async function upsertWallpaper(
 export async function deleteWallpaperBySlug(slug: string): Promise<void> {
   const ref = doc(getDB(), COLLECTIONS.WALLPAPERS, slug);
   await deleteDoc(ref);
-  // History is in a separate collection; we leave it for audit purposes
-  // (in production you might want a Cloud Function to purge it after
-  // a retention period).
 }

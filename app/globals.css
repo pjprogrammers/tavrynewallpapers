@@ -144,25 +144,25 @@ body {
 .edit-wallpaper-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
-  background: rgba(0, 255, 132, 0.12);
-  color: var(--primary);
-  border: 1px solid rgba(0, 255, 132, 0.35);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  color: var(--foreground-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.18s ease;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .edit-wallpaper-button:hover {
-  background: rgba(0, 255, 132, 0.22);
-  border-color: rgba(0, 255, 132, 0.6);
-  box-shadow: 0 0 12px rgba(0, 255, 132, 0.35);
-  transform: translateY(-1px);
+  color: var(--primary);
+  border-color: var(--border);
+  background: var(--card);
 }
 
 .edit-wallpaper-button:focus-visible {
@@ -170,8 +170,16 @@ body {
   outline-offset: 2px;
 }
 
-.edit-wallpaper-button-label {
-  letter-spacing: 0.02em;
+.wallpaper-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.wallpaper-title-row .wallpaper-title {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .edit-modal-backdrop {

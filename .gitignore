@@ -57,6 +57,7 @@ next-env.d.ts
 .idea/
 .vscode/
 .claude/
+.opencode/
 
 # Agent configs & skill templates (environment-specific)
 .agents/

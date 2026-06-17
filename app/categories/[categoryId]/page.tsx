@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import {
-  categories,
   getCategoryById,
   getWallpapersByCategory as getStaticByCategory,
   type Wallpaper,
@@ -9,12 +9,16 @@ import {
 import CategoryPageContent from "./CategoryPageContent";
 import {
   getCategoryByIdServer,
+  getAllWallpapersServer,
   getWallpapersByCategoryServer,
+  listCategoriesServer,
+  listTagsServer,
 } from "@/lib/wallpaper-store-server";
 import {
   resolveImageUrl,
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -125,23 +129,9 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 async function loadCategoryWallpapers(categoryId: string): Promise<Wallpaper[]> {
   if (categoryId === "all") {
-    // Sample 5 wallpapers per category, then slice 32
-    const allFromFs = await getWallpapersByCategoryServer(categoryId, 500);
-    if (allFromFs.length > 0) {
-      // For "all" view, sample across categories client-side
-      // We have only one category, so just return top 32
-      return allFromFs.slice(0, 32) as unknown as Wallpaper[];
-    }
-    // Static fallback
-    return categories
-      .flatMap((cat) => getStaticByCategory(cat.id).slice(0, 5))
-      .slice(0, 32);
+    return (await getAllWallpapersServer(500)) as unknown as Wallpaper[];
   }
-  const fromFs = await getWallpapersByCategoryServer(categoryId, 500);
-  if (fromFs.length > 0) {
-    return fromFs as unknown as Wallpaper[];
-  }
-  return getStaticByCategory(categoryId);
+  return (await getWallpapersByCategoryServer(categoryId, 500)) as unknown as Wallpaper[];
 }
 
 function buildCategory(categoryId: string) {
@@ -178,7 +168,15 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     notFound();
   }
 
-  const wallpapers = await loadCategoryWallpapers(categoryId);
+  const [wallpapers, allCategories, allTags] = await Promise.all([
+    loadCategoryWallpapers(categoryId),
+    listCategoriesServer(),
+    listTagsServer(),
+  ]);
+
+  const catOptions = allCategories.map((c) => ({ id: c.id, name: c.name }));
+  const tagOptions = allTags.map((t) => ({ id: t.id, name: t.name }));
+
   const categoryForClient = {
     ...category,
     count: wallpapers.length,
@@ -216,7 +214,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
       image:
         toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
         `${SITE_URL}/wallpapers/${w.filename}`,
@@ -234,11 +232,15 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       ))}
-      <CategoryPageContent
-        categoryId={categoryId}
-        category={categoryForClient}
-        initialWallpapers={wallpapers}
-      />
+      <Suspense fallback={<div className="min-h-screen bg-black" />}>
+        <CategoryPageContent
+          categoryId={categoryId}
+          category={categoryForClient}
+          initialWallpapers={wallpapers}
+          categories={catOptions}
+          tags={tagOptions}
+        />
+      </Suspense>
     </>
   );
 }

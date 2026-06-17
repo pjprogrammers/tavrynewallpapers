@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
-import { Info, Download, Eye, Heart } from "lucide-react";
-import { useRealtimeWallpaperStats } from "@/lib/use-firestore";
-import { getCategoryById } from "../../lib/wallpapers";
+import { Info, Download, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getCategoryById } from "@/lib/category-store";
+import type { CategoryDoc } from "@/lib/firestore-types";
 
 interface WallpaperInfoCardProps {
   wallpaperId: string;
   categoryId: string;
   resolution?: string;
-  uploadDate: string;
+  uploadDate?: string;
   staticViews: number;
   staticDownloads: number;
 }
@@ -22,28 +22,14 @@ export default function WallpaperInfoCard({
   wallpaperId,
   categoryId,
   resolution,
-  uploadDate,
+  uploadDate = "",
   staticViews,
   staticDownloads,
 }: WallpaperInfoCardProps) {
-  const realtimeStats = useRealtimeWallpaperStats(wallpaperId);
-
-  const stats = useMemo(() => {
-    if (realtimeStats) {
-      return {
-        views: realtimeStats.views ?? 0,
-        downloads: realtimeStats.downloads ?? 0,
-        likes: realtimeStats.likes ?? 0,
-      };
-    }
-    return {
-      views: staticViews,
-      downloads: staticDownloads,
-      likes: null,
-    };
-  }, [realtimeStats, staticViews, staticDownloads]);
-
-  const category = getCategoryById(categoryId);
+  const [category, setCategory] = useState<CategoryDoc | null>(null);
+  useEffect(() => {
+    getCategoryById(categoryId).then(setCategory).catch(() => setCategory(null));
+  }, [categoryId]);
 
   return (
     <div className="wallpaper-info-card animate-fade-in" style={{animationDelay: "0.4s"}}>
@@ -66,17 +52,10 @@ export default function WallpaperInfoCard({
         <div className="info-value">{new Date(uploadDate).toLocaleDateString()}</div>
 
         <div className="info-label">Downloads:</div>
-        <div className="info-value">{formatNumber(stats.downloads)}</div>
+        <div className="info-value">{formatNumber(staticDownloads)}</div>
 
         <div className="info-label">Views:</div>
-        <div className="info-value">{formatNumber(stats.views)}</div>
-
-        {stats.likes !== null && (
-          <>
-            <div className="info-label">Likes:</div>
-            <div className="info-value">{formatNumber(stats.likes)}</div>
-          </>
-        )}
+        <div className="info-value">{formatNumber(staticViews)}</div>
 
         <div className="info-label">ID:</div>
         <div className="info-value">{wallpaperId}</div>

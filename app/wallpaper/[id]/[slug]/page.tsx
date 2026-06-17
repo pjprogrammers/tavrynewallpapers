@@ -1,18 +1,19 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
-import Header from "../../components/Header";
-import Footer from "../../components/Footer";
-import WallpaperGrid from "../../components/WallpaperGrid";
+import { notFound, permanentRedirect } from "next/navigation";
+import { createSlug } from "@/lib/slug";
+import Header from "../../../components/Header";
+import Footer from "../../../components/Footer";
+import WallpaperGrid from "../../../components/WallpaperGrid";
 import WallpaperEditProvider from "./WallpaperEditProvider";
 import { WallpaperHero, WallpaperMobileTags } from "./WallpaperHero";
 import {
-  getWallpaperBySlug as getStaticWallpaperBySlug,
+  getWallpaperById as getStaticWallpaperById,
   getCategoryById,
   getTagById,
   type Wallpaper as StaticWallpaper,
-} from "../../lib/wallpapers";
+} from "../../../lib/wallpapers";
 import {
-  getWallpaperBySlugServer,
+  getWallpaperByIdServer,
   getRelatedWallpapersServer,
   getTrendingWallpapersServer,
 } from "@/lib/wallpaper-store-server";
@@ -26,50 +27,49 @@ const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
 
 interface WallpaperPageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string; slug: string }>;
 }
 
-// Map static `Wallpaper` to a Firestore-shaped `WallpaperMetadata`.
-// Used when Firestore has no document for this slug yet (e.g.
-// before `npm run seed-wallpapers` has been run).
-function toMetadata(slug: string, w: StaticWallpaper): WallpaperMetadata {
+function toMetadata(id: string, w: StaticWallpaper): WallpaperMetadata {
   return {
     slug: w.slug,
-    id: w.id,
+    id: id,
     title: w.title,
     description: w.description,
     categoryId: w.categoryId,
     tags: w.tags,
     resolution: w.resolution,
+    width: w.width,
+    height: w.height,
     filename: w.filename,
     featured: w.featured,
     trending: w.trending,
-    uploadDate: w.uploadDate,
-    createdAt: new Date(w.uploadDate),
-    updatedAt: new Date(w.uploadDate),
+    uploadDate: w.uploadDate ?? "",
+    createdAt: new Date(w.uploadDate ?? Date.now()),
+    updatedAt: new Date(w.uploadDate ?? Date.now()),
   };
 }
 
-// Generate dynamic metadata for wallpaper pages.
-// Reads Firestore AND static in parallel so the metadata function
-// itself is fast.
 export async function generateMetadata({ params }: WallpaperPageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { id, slug } = await params;
 
-  const firestore = await getWallpaperBySlugServer(slug);
+  const firestore = await getWallpaperByIdServer(id, { includeUnpublished: true });
   const wallpaper: WallpaperMetadata | null =
     firestore ??
     (() => {
-      const s = getStaticWallpaperBySlug(slug);
-      return s ? toMetadata(slug, s) : null;
+      const s = getStaticWallpaperById(id);
+      return s ? toMetadata(id, s) : null;
     })();
 
-  if (!wallpaper) {
+  if (!wallpaper || wallpaper.deleted || wallpaper.published === false) {
     return {
       title: "Wallpaper Not Found | Tavryne Wallpapers",
       robots: { index: false, follow: false },
     };
   }
+
+  const correctSlug = createSlug(wallpaper.title);
+  const canonicalSlug = correctSlug;
 
   const category = getCategoryById(wallpaper.categoryId);
   const tags = wallpaper.tags
@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: WallpaperPageProps): Promise<
   const imageUrl =
     toAbsoluteImageUrl(resolveImageUrl(wallpaper), SITE_URL) ??
     `${SITE_URL}/wallpapers/${wallpaper.filename}`;
-  const canonicalUrl = `${SITE_URL}/wallpaper/${wallpaper.slug}`;
+  const canonicalUrl = `${SITE_URL}/wallpaper/${wallpaper.id}/${canonicalSlug}`;
 
   return {
     title,
@@ -131,8 +131,8 @@ export async function generateMetadata({ params }: WallpaperPageProps): Promise<
       images: [
         {
           url: imageUrl,
-          width: 1920,
-          height: 1080,
+          width: wallpaper.width ?? 1920,
+          height: wallpaper.height ?? 1080,
           alt: `${wallpaper.title} - ${resolution} Wallpaper`,
         },
       ],
@@ -147,31 +147,28 @@ export async function generateMetadata({ params }: WallpaperPageProps): Promise<
   };
 }
 
-// Build JSON-LD structured data for the wallpaper page
-// (ImageObject + BreadcrumbList). Kept small to avoid
-// re-fetching data unnecessarily.
-async function buildWallpaperJsonLd(slug: string) {
-  const firestore = await getWallpaperBySlugServer(slug);
+async function buildWallpaperJsonLd(id: string) {
+  const firestore = await getWallpaperByIdServer(id, { includeUnpublished: true });
   const wallpaper: WallpaperMetadata | null =
     firestore ??
     (() => {
-      const s = getStaticWallpaperBySlug(slug);
-      return s ? toMetadata(slug, s) : null;
+      const s = getStaticWallpaperById(id);
+      return s ? toMetadata(id, s) : null;
     })();
 
-  if (!wallpaper) return null;
+  if (!wallpaper || wallpaper.deleted || wallpaper.published === false) return null;
 
   const category = getCategoryById(wallpaper.categoryId);
   const imageUrl =
     toAbsoluteImageUrl(resolveImageUrl(wallpaper), SITE_URL) ??
     `${SITE_URL}/wallpapers/${wallpaper.filename}`;
-  const pageUrl = `${SITE_URL}/wallpaper/${wallpaper.slug}`;
-  const width = wallpaper.resolution
+  const pageUrl = `${SITE_URL}/wallpaper/${wallpaper.id}/${createSlug(wallpaper.title)}`;
+  const width = wallpaper.width ?? (wallpaper.resolution
     ? parseInt(wallpaper.resolution.split("x")[0])
-    : 3840;
-  const height = wallpaper.resolution
+    : 3840);
+  const height = wallpaper.height ?? (wallpaper.resolution
     ? parseInt(wallpaper.resolution.split("x")[1])
-    : 2160;
+    : 2160);
 
   const breadcrumbItems: Array<{
     "@type": string;
@@ -204,12 +201,12 @@ async function buildWallpaperJsonLd(slug: string) {
         wallpaper.description ||
         `Download ${wallpaper.title} ${wallpaper.resolution || "4K"} wallpaper on ${SITE_NAME}. Free high-quality wallpaper for desktop and mobile.`,
       contentUrl: imageUrl,
-      url: pageUrl,
+      url: imageUrl,
       thumbnailUrl: imageUrl,
       width,
       height,
-      uploadDate: wallpaper.uploadDate,
-      datePublished: wallpaper.uploadDate,
+      uploadDate: wallpaper.uploadDate ?? new Date().toISOString(),
+      datePublished: wallpaper.uploadDate ?? new Date().toISOString(),
       encodingFormat: "image/jpeg",
       fileFormat: "image/jpeg",
       inLanguage: "en",
@@ -241,21 +238,22 @@ async function buildWallpaperJsonLd(slug: string) {
 }
 
 export default async function WallpaperPage({ params }: WallpaperPageProps) {
-  const { slug } = await params;
+  const { id, slug } = await params;
 
-  // 1. Try Firestore first
-  const fromFs = await getWallpaperBySlugServer(slug);
-  // 2. Fall back to static
-  const staticW = getStaticWallpaperBySlug(slug);
+  const fromFs = await getWallpaperByIdServer(id, { includeUnpublished: true });
+  if (fromFs && (fromFs.deleted || fromFs.published === false)) return notFound();
+  const staticW = getStaticWallpaperById(id);
   if (!fromFs && !staticW) return notFound();
 
-  const wallpaper: WallpaperMetadata = fromFs ?? toMetadata(slug, staticW!);
+  const wallpaper: WallpaperMetadata = fromFs ?? toMetadata(id, staticW!);
+
+  const correctSlug = createSlug(wallpaper.title);
+  if (slug !== correctSlug) {
+    permanentRedirect(`/wallpaper/${wallpaper.id}/${correctSlug}`);
+  }
+
   const category = getCategoryById(wallpaper.categoryId);
 
-  // ⚡ PERFORMANCE: Two composite-indexed queries in parallel.
-  //   - `getRelatedWallpapersServer` → composite (categoryId, visible, downloads, __name__)
-  //   - `getTrendingWallpapersServer` → composite (trending, updatedAt)
-  // Static seed is the safety net for un-seeded environments.
   const [fsRelated, fsTrending] = await Promise.all([
     getRelatedWallpapersServer(wallpaper.categoryId, wallpaper.slug, 8).catch(
       () => []
@@ -265,8 +263,7 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
 
   const useFs = fsRelated.length > 0;
 
-  // Static imports (used as fallback)
-  const staticMod = await import("../../lib/wallpapers");
+  const staticMod = await import("../../../lib/wallpapers");
   const fallbackRelated = staticMod
     .getWallpapersByCategory(wallpaper.categoryId)
     .slice()
@@ -285,7 +282,7 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
         ...(w as WallpaperMetadata),
         views: 0,
         downloads: 0,
-        likes: 0,
+        favorites: 0,
       } as StaticWallpaper;
     });
 
@@ -303,7 +300,7 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
         ...(w as WallpaperMetadata),
         views: 0,
         downloads: 0,
-        likes: 0,
+        favorites: 0,
       } as StaticWallpaper;
     });
 
@@ -323,7 +320,7 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
     { name: "Mobile", resolution: "1080x1920", device: "Smartphone", icon: "Smartphone" },
   ];
 
-  const jsonLd = await buildWallpaperJsonLd(slug);
+  const jsonLd = await buildWallpaperJsonLd(id);
 
   return (
     <>
@@ -339,7 +336,7 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
         <Header />
 
         <main role="main" id="main-content">
-          <WallpaperEditProvider slug={slug} staticWallpaper={wallpaper}>
+          <WallpaperEditProvider slug={wallpaper.slug} staticWallpaper={wallpaper}>
             <WallpaperHero category={category ?? null} downloadOptions={downloadOptions} />
 
             <WallpaperMobileTags />

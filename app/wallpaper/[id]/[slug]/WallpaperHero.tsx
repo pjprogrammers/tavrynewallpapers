@@ -2,15 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Tag } from "lucide-react";
 import WallpaperActions from "./WallpaperActions";
 import WallpaperImageLoading from "./WallpaperImageLoading";
 import WallpaperStats from "./WallpaperStats";
 import WallpaperInfoCard from "./WallpaperInfoCard";
+import EditWallpaperButton from "../../../components/EditWallpaperButton";
 import { useWallpaperContext } from "./WallpaperEditProvider";
-import { getCategoryById, getTagById } from "../../lib/wallpapers";
+import { getCategoryById } from "../../../lib/wallpapers";
 import { resolveImageUrl } from "@/lib/wallpaper-image";
+import { listTags } from "@/lib/tag-store";
 
 export function WallpaperHero({
   category,
@@ -20,6 +22,16 @@ export function WallpaperHero({
   downloadOptions: Array<{ name: string; resolution: string; device: string; icon: string }>;
 }) {
   const { wallpaper: merged } = useWallpaperContext();
+  const [tagNameMap, setTagNameMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    listTags()
+      .then((tags) => {
+        const map: Record<string, string> = {};
+        tags.forEach((t) => { map[t.id] = t.name; });
+        setTagNameMap(map);
+      })
+      .catch(() => {});
+  }, []);
   return (
     <article
       className="wallpaper-hero"
@@ -68,49 +80,28 @@ export function WallpaperHero({
 
             {/* Actions - Client Component */}
             <WallpaperActions
-              wallpaper={{
-                id: merged.id,
-                title: merged.title,
-                filename: merged.filename,
-                slug: merged.slug,
-                categoryId: merged.categoryId,
-                tags: merged.tags,
-                views: 0,
-                downloads: 0,
-                likes: 0,
-                uploadDate: merged.uploadDate,
-                resolution: merged.resolution,
-                description: merged.description,
-                featured: merged.featured,
-                trending: merged.trending,
-              }}
+              wallpaper={{ ...merged }}
               downloadOptions={downloadOptions}
             />
 
             {/* Mobile Details */}
             <div className="wallpaper-mobile-details">
-              <h2 className="wallpaper-title" aria-hidden="true">
-                {merged.title}
-              </h2>
+              <div className="wallpaper-title-row">
+                <h2 className="wallpaper-title" aria-hidden="true">
+                  {merged.title}
+                </h2>
+                <EditWallpaperButton
+                  slug={merged.slug}
+                  wallpaper={{ ...merged }}
+                />
+              </div>
 
               {merged.description && (
                 <p className="wallpaper-description">{merged.description}</p>
               )}
 
               <WallpaperStats
-                wallpaper={{
-                  id: merged.id,
-                  title: merged.title,
-                  filename: merged.filename,
-                  slug: merged.slug,
-                  categoryId: merged.categoryId,
-                  tags: merged.tags,
-                  views: 0,
-                  downloads: 0,
-                  likes: 0,
-                  uploadDate: merged.uploadDate,
-                  resolution: merged.resolution,
-                }}
+                wallpaper={{ ...merged }}
               />
             </div>
           </div>
@@ -120,9 +111,15 @@ export function WallpaperHero({
             className="wallpaper-details-container"
             aria-label="Wallpaper details"
           >
-            <h1 className="wallpaper-title" itemProp="name">
-              {merged.title}
-            </h1>
+            <div className="wallpaper-title-row">
+              <h1 className="wallpaper-title" itemProp="name">
+                {merged.title}
+              </h1>
+              <EditWallpaperButton
+                slug={merged.slug}
+                wallpaper={{ ...merged }}
+              />
+            </div>
 
             {merged.description && (
               <p className="wallpaper-description" itemProp="description">
@@ -131,19 +128,7 @@ export function WallpaperHero({
             )}
 
             <WallpaperStats
-              wallpaper={{
-                id: merged.id,
-                title: merged.title,
-                filename: merged.filename,
-                slug: merged.slug,
-                categoryId: merged.categoryId,
-                tags: merged.tags,
-                views: 0,
-                downloads: 0,
-                likes: 0,
-                uploadDate: merged.uploadDate,
-                resolution: merged.resolution,
-              }}
+              wallpaper={{ ...merged }}
             />
 
             <WallpaperInfoCard
@@ -167,29 +152,41 @@ export function WallpaperHero({
               </div>
               <div className="tags-grid">
                 {merged.tags.map((tagId, index) => {
-                  const tag = getTagById(tagId);
-                  return tag ? (
+                  const tagName = tagNameMap[tagId];
+                  return tagName ? (
                     <Link
                       key={`${tagId}-${index}`}
                       href={`/tag/${tagId}`}
                       className="tag-pill animate-fade-in"
                       style={{ animationDelay: `${0.1 * index + 0.6}s` }}
                     >
-                      {tag.name}
+                      {tagName}
                     </Link>
                   ) : null;
                 })}
               </div>
             </section>
+
           </aside>
         </div>
       </div>
+
     </article>
   );
 }
 
 export function WallpaperMobileTags() {
   const { wallpaper: merged } = useWallpaperContext();
+  const [tagNameMap, setTagNameMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    listTags()
+      .then((tags) => {
+        const map: Record<string, string> = {};
+        tags.forEach((t) => { map[t.id] = t.name; });
+        setTagNameMap(map);
+      })
+      .catch(() => {});
+  }, []);
   return (
     <section className="wallpaper-mobile-tags" aria-label="Wallpaper tags">
       <div className="tags-header">
@@ -198,14 +195,14 @@ export function WallpaperMobileTags() {
       </div>
       <div className="tags-grid">
         {merged.tags.map((tagId, index) => {
-          const tag = getTagById(tagId);
-          return tag ? (
+          const tagName = tagNameMap[tagId];
+          return tagName ? (
             <Link
               key={`mobile-${tagId}-${index}`}
               href={`/tag/${tagId}`}
               className="tag-pill"
             >
-              {tag.name}
+              {tagName}
             </Link>
           ) : null;
         })}

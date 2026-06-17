@@ -8,7 +8,7 @@
 ========================================================= */
 
 export const RATE_LIMITS = {
-  LIKES_PER_MINUTE: 60,
+  FAVORITES_PER_MINUTE: 60,
   DOWNLOADS_PER_MINUTE: 20,
   WINDOW_MS: 60 * 1000, // 1 minute window
 } as const;
@@ -21,7 +21,7 @@ export const RATE_LIMITS = {
  * Check if action is rate limited
  */
 export const isRateLimited = (
-  action: "like" | "download"
+  action: "favorite" | "download"
 ): { limited: boolean; retryAfter?: number; currentCount: number } => {
   const key = `rate_limit_${action}`;
   const now = Date.now();
@@ -42,8 +42,8 @@ export const isRateLimited = (
     }
 
     const maxActions =
-      action === "like"
-        ? RATE_LIMITS.LIKES_PER_MINUTE
+      action === "favorite"
+        ? RATE_LIMITS.FAVORITES_PER_MINUTE
         : RATE_LIMITS.DOWNLOADS_PER_MINUTE;
 
     if (count >= maxActions) {
@@ -66,13 +66,13 @@ export const isRateLimited = (
  * Returns false if rate limited, true if recorded successfully
  */
 export const recordAction = (
-  action: "like" | "download"
+  action: "favorite" | "download"
 ): { success: boolean; retryAfter?: number; currentCount: number } => {
   const key = `rate_limit_${action}`;
   const now = Date.now();
   const maxActions =
-    action === "like"
-      ? RATE_LIMITS.LIKES_PER_MINUTE
+    action === "favorite"
+      ? RATE_LIMITS.FAVORITES_PER_MINUTE
       : RATE_LIMITS.DOWNLOADS_PER_MINUTE;
 
   const stored = sessionStorage.getItem(key);
@@ -123,11 +123,11 @@ export const recordAction = (
    🗑️ CLEAR RATE LIMIT (for testing)
 ========================================================= */
 
-export const clearRateLimit = (action?: "like" | "download") => {
+export const clearRateLimit = (action?: "favorite" | "download") => {
   if (action) {
     sessionStorage.removeItem(`rate_limit_${action}`);
   } else {
-    sessionStorage.removeItem("rate_limit_like");
+    sessionStorage.removeItem("rate_limit_favorite");
     sessionStorage.removeItem("rate_limit_download");
   }
 };
@@ -137,11 +137,11 @@ export const clearRateLimit = (action?: "like" | "download") => {
 ========================================================= */
 
 export const getRateLimitError = (
-  action: "like" | "download",
+  action: "favorite" | "download",
   retryAfter: number
 ): string => {
-  if (action === "like") {
-    return `Like limit reached. Please wait ${retryAfter} seconds before liking more wallpapers.`;
+  if (action === "favorite") {
+    return `Favorite limit reached. Please wait ${retryAfter} seconds before favoriting more wallpapers.`;
   } else {
     return `Download limit reached. Please wait ${retryAfter} seconds before downloading more wallpapers.`;
   }

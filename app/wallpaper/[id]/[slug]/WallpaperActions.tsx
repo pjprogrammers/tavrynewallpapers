@@ -13,8 +13,8 @@ import {
   Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useLike, useViewCount, useDownload, useRealtimeWallpaperStats } from "@/lib/use-firestore";
-import { Wallpaper } from "../../lib/wallpapers";
+import { useFavorite, useViewCount, useDownload } from "@/lib/use-firestore";
+import { Wallpaper } from "../../../lib/wallpapers";
 import { resolveImageUrl, resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface WallpaperActionsProps {
@@ -36,10 +36,10 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
   // Track view when wallpaper page loads
-  useViewCount(wallpaper.id);
+  useViewCount(wallpaper.slug);
 
-  // Use Firestore for likes (auto-syncs with favorites)
-  const { isLiked, loading: likeLoading, error: likeError, toggle: toggleLike } = useLike(
+  // Use Firestore for favorites
+  const { isFavorited, loading: favLoading, error: favError, toggle: toggleFav } = useFavorite(
     wallpaper.id,
     {
       slug: wallpaper.slug,
@@ -51,17 +51,14 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
   // Download hook
   const { download: recordAndDownload, error: downloadError } = useDownload(wallpaper.id, wallpaper.slug);
 
-  // Get real-time stats for like count
-  const realtimeStats = useRealtimeWallpaperStats(wallpaper.id);
-
-  const handleLike = async () => {
+  const handleFav = async () => {
     if (!user) {
-      alert("Please sign in to like wallpapers");
+      alert("Please sign in to favorite wallpapers");
       return;
     }
-    await toggleLike();
-    if (likeError) {
-      setRateLimitError(likeError);
+    await toggleFav();
+    if (favError) {
+      setRateLimitError(favError);
       setTimeout(() => setRateLimitError(null), 5000);
     }
   };
@@ -71,7 +68,9 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
     setRateLimitError(null);
 
     try {
-      const response = await fetch(imageUrl);
+      const params = new URLSearchParams({ url: imageUrl, filename: fileName });
+      const response = await fetch(`/api/download?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -99,10 +98,8 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
     const userId = user?.uid;
 
     try {
-      // Use direct Firestore call for anonymous downloads
       const { recordDownload } = await import("@/lib/firestore");
-      await recordDownload({
-        userId: userId || undefined,
+      await recordDownload(userId || undefined, {
         wallpaperId: wallpaper.id,
         wallpaperSlug: wallpaper.slug,
         resolution,
@@ -110,7 +107,6 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
       });
     } catch (error) {
       console.error("[Download] Failed to record:", error);
-      // Continue with download even if recording fails
     }
 
     downloadImage(resolveImageUrl(wallpaper) ?? `/wallpapers/${wallpaper.filename}`, fileName);
@@ -155,17 +151,17 @@ export default function WallpaperActions({ wallpaper, downloadOptions }: Wallpap
     <div className="wallpaper-actions">
       <div className="wallpaper-action-buttons">
         <button
-          onClick={handleLike}
-          className={`wallpaper-action-button ${isLiked ? 'active' : ''}`}
-          disabled={likeLoading}
-          title={isLiked ? "Unlike" : "Like this wallpaper"}
+          onClick={handleFav}
+          className={`wallpaper-action-button ${isFavorited ? 'active' : ''}`}
+          disabled={favLoading}
+          title={isFavorited ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
             size={20}
-            className={`action-icon ${isLiked ? 'animate-pop' : ''}`}
-            fill={isLiked ? "var(--heart)" : "none"}
+            className={`action-icon ${isFavorited ? 'animate-pop' : ''}`}
+            fill={isFavorited ? "var(--heart)" : "none"}
           />
-          <span>{isLiked ? 'Liked' : 'Like'}{realtimeStats?.likes ? ` (${realtimeStats.likes})` : ''}</span>
+          <span>{isFavorited ? 'Favorited' : 'Favorite'}</span>
         </button>
 
         <button onClick={handleShare} className="wallpaper-action-button">

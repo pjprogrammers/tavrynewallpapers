@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../lib/wallpapers";
+import { createSlug } from "@/lib/slug";
 import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface FeaturedGridWithStatsProps {
@@ -19,7 +18,7 @@ interface FeaturedItemWithStatsProps {
 function FeaturedItemWithStats({ wallpaper, index }: FeaturedItemWithStatsProps) {
   return (
     <Link
-      href={`/wallpaper/${wallpaper.slug}`}
+      href={`/wallpaper/${wallpaper.id}/${createSlug(wallpaper.title)}`}
       className={`featured-item-v2 featured-item-v2-clean featured-item-${index} animate-fade-in`}
       style={{ animationDelay: `${index * 0.1}s` }}
     >

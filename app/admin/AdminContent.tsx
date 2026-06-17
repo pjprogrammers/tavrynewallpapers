@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { createSlug } from "@/lib/slug";
 import {
   Shield,
   ShieldCheck,
@@ -29,6 +30,9 @@ import {
   LayoutDashboard,
   Hash,
   ArrowUpRight,
+  Settings,
+  Upload,
+  Bookmark,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
@@ -101,7 +105,7 @@ const STAT_CARDS_CONFIG = [
     glow: "shadow-violet-500/20",
   },
   {
-    label: "Total Likes",
+    label: "Total Favorites",
     icon: Heart,
     gradient: "from-rose-500 to-rose-600",
     glow: "shadow-rose-500/20",
@@ -117,6 +121,12 @@ const STAT_CARDS_CONFIG = [
     icon: History,
     gradient: "from-cyan-500 to-cyan-600",
     glow: "shadow-cyan-500/20",
+  },
+  {
+    label: "Favorites",
+    icon: Bookmark,
+    gradient: "from-pink-500 to-pink-600",
+    glow: "shadow-pink-500/20",
   },
 ];
 
@@ -398,7 +408,7 @@ export default function AdminContent() {
 
   const totalViews = s.reduce((a, w) => a + (w.views ?? 0), 0);
   const totalDownloads = s.reduce((a, w) => a + (w.downloads ?? 0), 0);
-  const totalLikes = s.reduce((a, w) => a + (w.likes ?? 0), 0);
+  const totalFavorites = s.reduce((a, w) => a + (w.favorites ?? 0), 0);
   const featuredCount = s.filter((w) => w.featured).length;
   const trendingCount = s.filter((w) => w.trending).length;
   const edits24h = edits.filter((e) => {
@@ -410,9 +420,9 @@ export default function AdminContent() {
     { ...STAT_CARDS_CONFIG[0], value: s.length, sub: `${featuredCount} featured \u00B7 ${trendingCount} trending` },
     { ...STAT_CARDS_CONFIG[1], value: fmtCompact(totalViews), sub: `${s.length > 0 ? Math.round(totalViews / s.length) : 0} avg per wallpaper` },
     { ...STAT_CARDS_CONFIG[2], value: fmtCompact(totalDownloads), sub: `${s.length > 0 ? Math.round(totalDownloads / s.length) : 0} avg per wallpaper` },
-    { ...STAT_CARDS_CONFIG[3], value: fmtCompact(totalLikes), sub: `${s.length > 0 ? Math.round(totalLikes / s.length) : 0} avg per wallpaper` },
-    { ...STAT_CARDS_CONFIG[4], value: drafts.length, sub: drafts.length > 0 ? `${Math.round((drafts.length / Math.max(s.length + drafts.length, 1)) * 100)}% of total` : "All published" },
-    { ...STAT_CARDS_CONFIG[5], value: edits24h, sub: `${edits.length} total recorded` },
+    { ...STAT_CARDS_CONFIG[3], value: fmtCompact(totalFavorites), sub: `${s.length > 0 ? Math.round(totalFavorites / s.length) : 0} avg per wallpaper` },
+    { ...STAT_CARDS_CONFIG[5], value: drafts.length, sub: drafts.length > 0 ? `${Math.round((drafts.length / Math.max(s.length + drafts.length, 1)) * 100)}% of total` : "All published" },
+    { ...STAT_CARDS_CONFIG[6], value: edits24h, sub: `${edits.length} total recorded` },
   ];
 
   const tabs = [
@@ -445,27 +455,41 @@ export default function AdminContent() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {lastRefreshed && (
-            <span className="text-xs text-zinc-500 flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 rounded-lg border border-zinc-800">
-              <Clock size={11} /> {lastRefreshed.toLocaleTimeString()}
-            </span>
-          )}
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs border border-zinc-700 rounded-lg hover:border-primary/40 hover:text-primary transition-all disabled:opacity-50 text-zinc-300"
-            type="button"
-          >
-            {loading ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <RefreshCw size={12} />
+          <div className="flex items-center gap-3">
+            {lastRefreshed && (
+              <span className="text-xs text-zinc-500 flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                <Clock size={11} /> {lastRefreshed.toLocaleTimeString()}
+              </span>
             )}
-            Refresh
-          </button>
-        </div>
-      </motion.div>
+            <Link
+              href="/studio"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-medium rounded-lg transition-all"
+            >
+              <Layers size={12} />
+              Studio CMS
+            </Link>
+            <Link
+              href="/studio/wallpapers/new"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-lg transition-all"
+            >
+              <ImageIcon size={12} />
+              New Wallpaper
+            </Link>
+            <button
+              onClick={refresh}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs border border-zinc-700 rounded-lg hover:border-primary/40 hover:text-primary transition-all disabled:opacity-50 text-zinc-300"
+              type="button"
+            >
+              {loading ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+              Refresh
+            </button>
+          </div>
+        </motion.div>
 
       {error && (
         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
@@ -506,7 +530,7 @@ export default function AdminContent() {
       {tab === "overview" && (
         <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
           {/* Stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {statCards.map((stat, i) => (
               <motion.div
                 key={stat.label}
@@ -530,6 +554,38 @@ export default function AdminContent() {
             ))}
           </div>
 
+          {/* Quick Links */}
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/analytics"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs bg-zinc-900/60 border border-zinc-800 hover:border-primary/40 rounded-lg text-zinc-400 hover:text-primary transition-all"
+            >
+              <BarChart3 size={13} />
+              Analytics
+            </Link>
+            <Link
+              href="/admin/users"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs bg-zinc-900/60 border border-zinc-800 hover:border-primary/40 rounded-lg text-zinc-400 hover:text-primary transition-all"
+            >
+              <Users size={13} />
+              Users
+            </Link>
+            <Link
+              href="/admin/roles"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs bg-zinc-900/60 border border-zinc-800 hover:border-primary/40 rounded-lg text-zinc-400 hover:text-primary transition-all"
+            >
+              <Shield size={13} />
+              Roles
+            </Link>
+            <Link
+              href="/admin/settings"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs bg-zinc-900/60 border border-zinc-800 hover:border-primary/40 rounded-lg text-zinc-400 hover:text-primary transition-all"
+            >
+              <Settings size={13} />
+              Settings
+            </Link>
+          </div>
+
           {/* Leaderboards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Downloaded */}
@@ -545,8 +601,8 @@ export default function AdminContent() {
                 <div className="space-y-1">
                   {topDownloaded.map((w, i) => (
                     <Link
-                      key={w.slug}
-                      href={`/wallpaper/${w.slug}`}
+                      key={w.id}
+                      href={`/wallpaper/${w.id}/${createSlug(w.title)}`}
                       target="_blank"
                       rel="noopener"
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800/50 transition-all group"
@@ -592,8 +648,8 @@ export default function AdminContent() {
                 <div className="space-y-1">
                   {topViewed.map((w, i) => (
                     <Link
-                      key={w.slug}
-                      href={`/wallpaper/${w.slug}`}
+                      key={w.id}
+                      href={`/wallpaper/${w.id}/${createSlug(w.title)}`}
                       target="_blank"
                       rel="noopener"
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800/50 transition-all group"
@@ -817,13 +873,13 @@ function WallpapersTab({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {sorted.slice(0, 80).map((w, i) => (
               <motion.div
-                key={w.slug}
+                key={w.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.008 }}
               >
                 <Link
-                  href={`/wallpaper/${w.slug}`}
+                  href={`/wallpaper/${w.id}/${createSlug(w.title)}`}
                   target="_blank"
                   rel="noopener"
                   className="group flex items-center gap-3 p-3 bg-zinc-900/40 border border-zinc-800 rounded-xl hover:border-zinc-700 transition-all"
@@ -850,7 +906,7 @@ function WallpapersTab({
                     <div className="flex items-center gap-2.5 mt-1.5 text-[10px] text-zinc-500">
                       <span className="flex items-center gap-0.5"><Eye size={9} />{fmtCompact(w.views ?? 0)}</span>
                       <span className="flex items-center gap-0.5"><Download size={9} />{fmtCompact(w.downloads ?? 0)}</span>
-                      <span className="flex items-center gap-0.5"><Heart size={9} />{fmtCompact(w.likes ?? 0)}</span>
+                      <span className="flex items-center gap-0.5"><Heart size={9} />{fmtCompact(w.favorites ?? 0)}</span>
                     </div>
                   </div>
                   <ExternalLink size={12} className="text-zinc-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -886,13 +942,13 @@ function DraftsTab({ drafts, loading }: { drafts: WallpaperMetadata[]; loading: 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {drafts.slice(0, 80).map((w, i) => (
           <motion.div
-            key={w.slug}
+            key={w.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.008 }}
           >
             <Link
-              href={`/wallpaper/${w.slug}`}
+              href={`/wallpaper/${w.id}/${createSlug(w.title)}`}
               target="_blank"
               rel="noopener"
               className="group flex items-center gap-3 p-3 bg-zinc-900/40 border border-zinc-800 rounded-xl hover:border-amber-500/30 transition-all"
@@ -956,12 +1012,12 @@ function EditsTab({ edits, loading }: { edits: WallpaperEdit[]; loading: boolean
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Link
-                    href={`/wallpaper/${e.wallpaperSlug}`}
+                    href={`/wallpaper/${e.after.id ?? e.wallpaperSlug}/${createSlug(e.after.title ?? e.wallpaperSlug)}`}
                     target="_blank"
                     rel="noopener"
                     className="inline-flex items-center gap-1.5 font-mono text-sm font-medium text-zinc-200 hover:text-primary transition-colors"
                   >
-                    {e.wallpaperSlug} <ExternalLink size={10} />
+                    {e.after.title ?? e.wallpaperSlug} <ExternalLink size={10} />
                   </Link>
                   <span className="text-xs text-zinc-500">
                     by <strong className="text-zinc-300">{e.editedByName || e.editedByEmail || "Unknown"}</strong>

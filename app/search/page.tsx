@@ -1,13 +1,18 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
 import SearchContent from "./SearchContent";
-import { searchWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  searchWallpapersServer,
+  listCategoriesServer,
+  listTagsServer,
+} from "@/lib/wallpaper-store-server";
 import {
   getAllWallpapers as getStaticWallpapers,
   searchWallpapers as staticSearch,
   type Wallpaper,
 } from "../lib/wallpapers";
 import { toAbsoluteImageUrl, resolveImageUrl } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -68,6 +73,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         : getStaticWallpapers().slice(0, 60);
   }
 
+  const [allCategories, allTags] = await Promise.all([
+    listCategoriesServer(),
+    listTagsServer(),
+  ]);
+  const catOptions = allCategories.map((c) => ({ id: c.id, name: c.name }));
+  const tagOptions = allTags.map((t) => ({ id: t.id, name: t.name }));
+
   const itemList = {
     "@context": "https://schema.org",
     "@type": "SearchResultsPage",
@@ -84,7 +96,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
       image:
         toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
         `${SITE_URL}/wallpapers/${w.filename}`,
@@ -104,7 +116,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
         }
       >
-        <SearchContent query={query} initialWallpapers={wallpapers} />
+        <SearchContent query={query} initialWallpapers={wallpapers} categories={catOptions} tags={tagOptions} />
       </Suspense>
     </>
   );

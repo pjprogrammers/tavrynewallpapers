@@ -184,6 +184,49 @@ export function canManageRoles(
 }
 
 /* =========================================================
+   🧩 PERMISSION-BASED ACCESS CONTROL
+========================================================= */
+
+export type Permission =
+  | "wallpaper.create"
+  | "wallpaper.edit"
+  | "wallpaper.delete"
+  | "user.manage"
+  | "settings.manage";
+
+/** Map of every permission to its description. Useful for UI display. */
+export const AllPermissions: Record<Permission, string> = {
+  "wallpaper.create": "Create new wallpapers",
+  "wallpaper.edit": "Edit any wallpaper's metadata",
+  "wallpaper.delete": "Delete wallpapers",
+  "user.manage": "Manage users and roles",
+  "settings.manage": "Manage site settings",
+};
+
+/**
+ * Check if a user has a specific permission.
+ * Admins have all permissions. Moderators have content permissions.
+ */
+export function hasPermission(
+  user: User | null | undefined,
+  permission: Permission,
+  mirrorRoles?: UserRoles | null
+): boolean {
+  const roles = getRolesFromUser(user, mirrorRoles);
+  if (roles.admin) return true;
+  if (!roles.moderator) return false;
+  switch (permission) {
+    case "wallpaper.create":
+    case "wallpaper.edit":
+      return true;
+    case "wallpaper.delete":
+    case "user.manage":
+    case "settings.manage":
+      return false;
+  }
+}
+
+/* =========================================================
    🛡️ VALIDATION (used by the role script and security rules)
 ========================================================= */
 

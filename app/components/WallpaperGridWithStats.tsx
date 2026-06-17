@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
 import { Download, Heart, Eye, Maximize2 } from "lucide-react";
-import { useRealtimeWallpaperStats } from "@/lib/use-firestore";
 import { Wallpaper } from "../lib/wallpapers";
 import Link from "next/link";
 import Image from "next/image";
+import { createSlug } from "@/lib/slug";
 import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 interface WallpaperGridWithStatsProps {
@@ -23,25 +22,8 @@ interface WallpaperCardWithStatsProps {
 }
 
 function WallpaperCardWithStats({ wallpaper }: WallpaperCardWithStatsProps) {
-  const stats = useRealtimeWallpaperStats(wallpaper.id);
-
-  const displayStats = useMemo(() => {
-    if (stats) {
-      return {
-        downloads: stats.downloads ?? wallpaper.downloads,
-        likes: stats.likes ?? wallpaper.likes ?? 0,
-        views: stats.views ?? wallpaper.views,
-      };
-    }
-    return {
-      downloads: wallpaper.downloads,
-      likes: wallpaper.likes ?? 0,
-      views: wallpaper.views,
-    };
-  }, [stats, wallpaper.downloads, wallpaper.likes, wallpaper.views]);
-
   return (
-    <Link href={`/wallpaper/${wallpaper.slug}`} className="wallpaper-card-v3">
+    <Link href={`/wallpaper/${wallpaper.id}/${createSlug(wallpaper.title)}`} className="wallpaper-card-v3">
       <div className="wallpaper-v3-image-wrapper">
         <Image
           src={resolveThumbnailUrl(wallpaper) ?? `/wallpapers/${wallpaper.filename}`}
@@ -58,15 +40,15 @@ function WallpaperCardWithStats({ wallpaper }: WallpaperCardWithStatsProps) {
           <div className="wallpaper-v3-stats">
             <span className="wallpaper-v3-stat">
               <Eye size={12} />
-              {formatNumber(displayStats.views)}
+              {formatNumber(wallpaper.views ?? 0)}
             </span>
             <span className="wallpaper-v3-stat">
               <Heart size={12} />
-              {formatNumber(displayStats.likes)}
+              {formatNumber(wallpaper.favorites ?? 0)}
             </span>
             <span className="wallpaper-v3-stat">
               <Download size={12} />
-              {formatNumber(displayStats.downloads)}
+              {formatNumber(wallpaper.downloads ?? 0)}
             </span>
           </div>
         </div>

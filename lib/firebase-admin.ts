@@ -49,6 +49,7 @@ import {
   type ServiceAccount,
 } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getAuth, type Auth } from "firebase-admin/auth";
 
 type CredentialSource =
   | "FIREBASE_SERVICE_ACCOUNT_KEY"
@@ -231,4 +232,14 @@ export function getAdminInitError(): Error | null {
  */
 export function getAdminInitSource(): CredentialSource | null {
   return initSource;
+}
+
+/**
+ * Get the Admin SDK Auth instance for verifying Firebase ID tokens
+ * in API routes. Returns `null` if the Admin SDK is not initialized.
+ */
+export function getAdminAuth(): Auth | null {
+  const app = tryInit();
+  if (!app) return null;
+  return getAuth(app);
 }

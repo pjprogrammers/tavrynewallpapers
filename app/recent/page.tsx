@@ -1,20 +1,21 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
-import WallpaperGrid from "../components/WallpaperGrid";
-import SearchBar from "../components/SearchBar";
-import CategoryList from "../components/CategoryList";
+import FilteredListing from "../components/filters/FilteredListing";
 import {
-  categories,
   getRecentWallpapers as getStaticRecent,
   type Wallpaper,
 } from "../lib/wallpapers";
-import { getAllWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  getAllWallpapersServer,
+  listCategoriesServer,
+  listTagsServer,
+} from "@/lib/wallpaper-store-server";
 import {
   resolveImageUrl,
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 import { ArrowLeft } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
@@ -74,7 +75,14 @@ async function loadRecentWallpapers(): Promise<Wallpaper[]> {
 }
 
 export default async function RecentPage() {
-  const recentWallpapers = await loadRecentWallpapers();
+  const [recentWallpapers, allCategories, allTags] = await Promise.all([
+    loadRecentWallpapers(),
+    listCategoriesServer(),
+    listTagsServer(),
+  ]);
+
+  const catOptions = allCategories.map((c) => ({ id: c.id, name: c.name }));
+  const tagOptions = allTags.map((t) => ({ id: t.id, name: t.name }));
 
   const collectionPage = {
     "@context": "https://schema.org",
@@ -107,7 +115,7 @@ export default async function RecentPage() {
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
       image:
         toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
         `${SITE_URL}/wallpapers/${w.filename}`,
@@ -125,33 +133,23 @@ export default async function RecentPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       ))}
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 pt-20" role="main" id="main-content">
-          <div className="container mx-auto px-4">
-            <nav className="py-4" aria-label="Breadcrumb">
-              <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
-                <ArrowLeft size={16} className="mr-1" /> Back to Home
-              </Link>
-            </nav>
-
-            <h1 className="text-2xl font-bold mb-6">Recent Wallpapers</h1>
-
-            <section className="mb-6" aria-label="Search">
-              <SearchBar />
-            </section>
-
-            <section className="mb-8" aria-label="Categories">
-              <CategoryList categories={categories} />
-            </section>
-
-            <section aria-label="Recent wallpapers">
-              <WallpaperGrid wallpapers={recentWallpapers} />
-            </section>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <Suspense fallback={<div className="min-h-screen bg-black" />}>
+        <FilteredListing
+          wallpapers={recentWallpapers}
+          categories={catOptions}
+          tags={tagOptions}
+          header={
+            <>
+              <nav className="py-4" aria-label="Breadcrumb">
+                <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
+                  <ArrowLeft size={16} className="mr-1" /> Back to Home
+                </Link>
+              </nav>
+              <h1 className="text-2xl font-bold mb-6">Recent Wallpapers</h1>
+            </>
+          }
+        />
+      </Suspense>
     </>
   );
 }

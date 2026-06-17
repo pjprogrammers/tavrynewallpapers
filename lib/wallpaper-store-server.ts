@@ -26,68 +26,7 @@ import { COLLECTIONS, SUB_COLLECTIONS } from "./firestore-types";
 import type { WallpaperMetadata, WallpaperEdit } from "./firestore-types";
 import { getAdminDb } from "./firebase-admin";
 import { cached } from "./cache";
-
-/* =========================================================
-   🔧 SHARED HELPERS
-========================================================= */
-
-/** Coerce a Firestore Timestamp / Date / string to `Date`. */
-function coerceDate(v: unknown): Date | undefined {
-  if (!v) return undefined;
-  if (v instanceof Date) return v;
-  if (typeof v === "object" && v !== null) {
-    if ("toDate" in v && typeof (v as { toDate?: () => Date }).toDate === "function") {
-      try {
-        return (v as { toDate: () => Date }).toDate();
-      } catch {
-        return undefined;
-      }
-    }
-  }
-  if (typeof v === "string" || typeof v === "number") {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? undefined : d;
-  }
-  return undefined;
-}
-
-/** Normalize a raw Firestore document into `WallpaperMetadata`. */
-function normalizeWallpaper(
-  slug: string,
-  data: Record<string, unknown>
-): WallpaperMetadata {
-  const createdAt = coerceDate(data.createdAt) ?? new Date();
-  const updatedAt = coerceDate(data.updatedAt) ?? createdAt;
-  const title = (data.title as string) ?? slug;
-  return {
-    slug,
-    id: data.id != null ? String(data.id) : slug,
-    title,
-    description: (data.description as string) ?? "",
-    categoryId: (data.categoryId as string) ?? "abstract",
-    tags: Array.isArray(data.tags) ? (data.tags as string[]) : [],
-    resolution: (data.resolution as string) ?? "3840x2160",
-    filename: (data.filename as string) ?? `${slug}.jpg`,
-    imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : undefined,
-    thumbnailUrl:
-      typeof data.thumbnailUrl === "string" ? data.thumbnailUrl : undefined,
-    titleLower:
-      typeof data.titleLower === "string"
-        ? data.titleLower
-        : title.toLowerCase(),
-    visible: data.visible === undefined ? true : Boolean(data.visible),
-    featured: Boolean(data.featured),
-    trending: Boolean(data.trending),
-    views: typeof data.views === "number" ? data.views : 0,
-    downloads: typeof data.downloads === "number" ? data.downloads : 0,
-    likes: typeof data.likes === "number" ? data.likes : 0,
-    favorites: typeof data.favorites === "number" ? data.favorites : 0,
-    uploadDate:
-      (data.uploadDate as string) ?? createdAt.toISOString().slice(0, 10),
-    createdAt,
-    updatedAt,
-  };
-}
+import { normalizeWallpaper } from "./wallpaper-utils";
 
 /** Edit-history `editedAt` -> ms-since-epoch. */
 function editTimestampMs(v: unknown): number {
@@ -122,8 +61,59 @@ function editTimestampMs(v: unknown): number {
    📖 READ HELPERS
 ========================================================= */
 
+export async function getWallpaperByIdServer(
+  id: string,
+  opts: { includeUnpublished?: boolean } = {}
+): Promise<WallpaperMetadata | null> {
+  if (!id) return null;
+  return cached(`wallpapers:id:${id}`, async () => {
+    // Try direct doc lookup first (document ID = wallpaper ID)
+    const admin = getAdminDb();
+    if (!admin) return null;
+
+    // Try direct doc lookup by ID
+    try {
+      const docSnap = await admin
+        .collection(COLLECTIONS.WALLPAPERS)
+        .doc(id)
+        .get();
+      if (docSnap.exists) {
+        const data = docSnap.data() ?? {};
+        if (data.id == id) {
+          const w = normalizeWallpaper(id, data as Record<string, unknown>);
+          if (!opts.includeUnpublished && (w.deleted || !w.published)) return null;
+          return w;
+        }
+      }
+    } catch {
+      // Fall through to query approach
+    }
+
+    // Fall back: query where `id == id` (for existing data keyed by slug)
+    try {
+      const snap = await admin
+        .collection(COLLECTIONS.WALLPAPERS)
+        .where("id", "==", id)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        const d = snap.docs[0];
+        return normalizeWallpaper(d.id, d.data() ?? {});
+      }
+    } catch (err) {
+      console.warn(
+        `[wallpaper-store-server] getWallpaperByIdServer(${id}) failed:`,
+        err
+      );
+    }
+
+    return null;
+  });
+}
+
 export async function getWallpaperBySlugServer(
-  slug: string
+  slug: string,
+  opts: { includeUnpublished?: boolean } = {}
 ): Promise<WallpaperMetadata | null> {
   if (!slug) return null;
   return cached(`wallpapers:slug:${slug}`, async () => {
@@ -135,7 +125,9 @@ export async function getWallpaperBySlugServer(
         .doc(slug)
         .get();
       if (!snap.exists) return null;
-      return normalizeWallpaper(slug, snap.data() ?? {});
+      const w = normalizeWallpaper(slug, snap.data() ?? {});
+      if (!opts.includeUnpublished && (w.deleted || !w.published)) return null;
+      return w;
     } catch (err) {
       console.warn(
         `[wallpaper-store-server] getWallpaperBySlugServer(${slug}) failed:`,
@@ -161,17 +153,14 @@ export async function getAllWallpapersServer(
           .orderBy("updatedAt", "desc")
           .limit(pageSize);
         if (!includeHidden) {
-          // We don't filter `visible == true` at the query level
-          // because old docs may not have the field. Instead we
-          // post-filter in `normalizeWallpaper`'s output and below.
-          // This keeps the query simple and avoids needing a
-          // composite index for the common case.
+          // Post-filter published status and soft-delete to avoid
+          // needing composite indexes. `visible` is legacy.
         }
         const snap = await query.get();
         const list: WallpaperMetadata[] = [];
         snap.forEach((d) => {
           const w = normalizeWallpaper(d.id, d.data() ?? {});
-          if (!includeHidden && w.visible === false) return;
+          if (!includeHidden && (w.visible === false || w.published === false || w.deleted)) return;
           list.push(w);
         });
         return list;
@@ -200,7 +189,11 @@ export async function getFeaturedWallpapersServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted || !w.published) return;
+        list.push(w);
+      });
       return list;
     } catch (err) {
       console.warn(
@@ -226,7 +219,11 @@ export async function getTrendingWallpapersServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted || !w.published) return;
+        list.push(w);
+      });
       return list;
     } catch (err) {
       console.warn(
@@ -253,7 +250,11 @@ export async function getWallpapersByCategoryServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted || !w.published) return;
+        list.push(w);
+      });
       return list;
     } catch (err) {
       console.warn(
@@ -301,14 +302,8 @@ export async function getRelatedWallpapersServer(
           .get();
         const list: WallpaperMetadata[] = [];
         snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
-        // Defensive post-filter for the `visible != false` case
-        // (docs with missing field are still returned; we still
-        // want to drop explicitly hidden ones in case the `!=`
-        // semantics differ from a strict `== true` query).
-        // Also excludes `excludeSlug` here on the server side
-        // because Firestore allows only one `!=` per query.
         return list
-          .filter((w) => w.visible !== false)
+          .filter((w) => w.visible !== false && w.published !== false && !w.deleted)
           .filter((w) => w.slug !== excludeSlug)
           .slice(0, pageSize);
       } catch (err) {
@@ -348,7 +343,7 @@ export async function getPopularWallpapersServer(
         .get();
       const list: WallpaperMetadata[] = [];
       snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
-      return list.filter((w) => w.visible !== false);
+      return list.filter((w) => w.visible !== false && w.published !== false && !w.deleted);
     } catch (err) {
       console.warn(
         "[wallpaper-store-server] getPopularWallpapersServer failed:",
@@ -370,7 +365,7 @@ export async function getPopularWallpapersServer(
  * `wallpapers/{slug}.views` field.
  */
 export async function getMostViewedWallpapersServer(
-  pageSize: number = 24
+  pageSize: number = 200
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:most-viewed:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -383,7 +378,11 @@ export async function getMostViewedWallpapersServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted || !w.published) return;
+        list.push(w);
+      });
       return list.filter((w) => w.visible !== false);
     } catch (err) {
       console.warn(
@@ -396,10 +395,10 @@ export async function getMostViewedWallpapersServer(
 }
 
 /**
- * Published (visible) wallpapers, sorted by most-recently updated.
+ * Published wallpapers, sorted by most-recently updated.
  *
  * Uses the composite index:
- *   `visible ASC, updatedAt DESC`
+ *   `published ASC, updatedAt DESC`
  */
 export async function getPublishedWallpapersServer(
   pageSize: number = 200
@@ -410,12 +409,17 @@ export async function getPublishedWallpapersServer(
     try {
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
-        .where("visible", "==", true)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .orderBy("updatedAt", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted) return;
+        list.push(w);
+      });
       return list;
     } catch (err) {
       console.warn(
@@ -428,12 +432,10 @@ export async function getPublishedWallpapersServer(
 }
 
 /**
- * Drafts (hidden) wallpapers, for the admin Drafts tab.
+ * Drafts (unpublished) wallpapers, for the admin Drafts tab.
  *
  * Uses the composite index:
- *   `visible ASC, updatedAt DESC`
- * (shared with `getPublishedWallpapersServer` — Firestore can use
- * the same index for both filter values.)
+ *   `published ASC, updatedAt DESC`
  */
 export async function getDraftsServer(
   pageSize: number = 200
@@ -444,12 +446,17 @@ export async function getDraftsServer(
     try {
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
-        .where("visible", "==", false)
+        .where("published", "==", false)
+        .where("deleted", "!=", true)
         .orderBy("updatedAt", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted) return;
+        list.push(w);
+      });
       return list;
     } catch (err) {
       console.warn(
@@ -476,7 +483,11 @@ export async function getWallpapersByTagServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
+      snap.forEach((d) => {
+        const w = normalizeWallpaper(d.id, d.data() ?? {});
+        if (w.deleted || !w.published) return;
+        list.push(w);
+      });
       return list;
     } catch (err) {
       console.warn(
@@ -534,7 +545,7 @@ export async function searchWallpapersServer(
             if (seen.has(d.id)) return;
             seen.add(d.id);
             const w = normalizeWallpaper(d.id, d.data() ?? {});
-            if (w.visible === false) return;
+            if (w.visible === false || !w.published || w.deleted) return;
             candidates.push(w);
           });
         };

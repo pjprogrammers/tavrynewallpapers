@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuth } from "@/lib/firebase-admin";
 
 // Generate unique ID without external dependency
 function generateUniqueId(): string {
@@ -209,6 +210,27 @@ async function uploadToCloudinary(buffer: Buffer, contentType: string): Promise<
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify Firebase ID token — only moderators/admins can use this endpoint
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ success: false, error: "Missing authorization." }, { status: 401 });
+    }
+    const adminAuth = getAdminAuth();
+    if (!adminAuth) {
+      return NextResponse.json({ success: false, error: "Auth service unavailable." }, { status: 500 });
+    }
+    let verifiedToken: { uid: string; admin?: boolean; moderator?: boolean };
+    try {
+      const token = authHeader.slice(7);
+      const decoded = await adminAuth.verifyIdToken(token);
+      if (!decoded.moderator && !decoded.admin) {
+        return NextResponse.json({ success: false, error: "Insufficient permissions." }, { status: 403 });
+      }
+      verifiedToken = decoded as { uid: string; admin?: boolean; moderator?: boolean };
+    } catch {
+      return NextResponse.json({ success: false, error: "Invalid or expired token." }, { status: 401 });
+    }
+
     // Parse request body
     let body: { imageUrl?: string };
 

@@ -8,6 +8,8 @@ const DISALLOWED = [
   "/api/",
   "/admin",
   "/admin/",
+  "/studio",
+  "/studio/",
   "/profile",
   "/upload",
   "/favorites",

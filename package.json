@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "role": "tsx scripts/manage-roles.ts",
-    "seed-wallpapers": "tsx scripts/seed-wallpapers.ts",
+    "import-public": "tsx scripts/import-public.ts",
     "generate-favicons": "tsx scripts/generate-favicons.ts"
   },
   "dependencies": {

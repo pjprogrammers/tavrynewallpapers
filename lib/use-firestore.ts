@@ -3,63 +3,34 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./auth-context";
 import {
-  // User
   createOrUpdateUser,
   getUserProfile,
   updateUserProfile,
-  // Wallpaper
   getWallpaperMetadata,
-  getWallpaperStats,
-  subscribeToWallpaperStats,
   getWallpapersByCategory,
   getAllWallpapers,
   searchWallpapers,
-  // Favorites
-  addToFavorites,
-  removeFromFavorites,
+  getRecentWallpapers,
+  toggleFavorite,
   isFavorited,
   subscribeToUserFavorites,
-  checkMultipleFavorites,
-  // Likes
-  toggleLike,
-  isLiked as checkIsLiked,
-  subscribeToUserLikes,
-  checkMultipleLikes,
-  // Downloads
   recordDownload,
   getUserDownloads,
   hasDownloaded,
   subscribeToUserDownloads,
-  // Views/Analytics
-  recordView,
-  incrementViewCount,
-  incrementClickCount,
-  recordImpression,
-  recordClick,
-  // Stats
-  getPopularWallpapers,
-  getRecentWallpapers,
+  getFavoriteCount,
+  getDownloadCount,
+  incrementViews,
+  incrementImpressions,
+  incrementClicks,
 } from "./firestore";
-import {
-  isRateLimited,
-  recordAction,
-  getRateLimitError,
-} from "./rate-limit";
 import type {
   UserProfile,
   WallpaperMetadata,
-  WallpaperStats,
   Favorite,
   Download,
 } from "./firestore-types";
 
-/* =========================================================
-   👤 USER PROFILE HOOK
-========================================================= */
-
-/**
- * Hook to sync user data with Firestore on auth state changes
- */
 export const useSyncUser = () => {
   const { user, loading } = useAuth();
 
@@ -74,15 +45,11 @@ export const useSyncUser = () => {
           provider,
         });
       };
-
       syncUser();
     }
   }, [user, loading]);
 };
 
-/**
- * Hook to get user profile from Firestore
- */
 export const useUserProfile = (userId?: string) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,72 +87,6 @@ export const useUserProfile = (userId?: string) => {
   return { profile, loading, updateProfile };
 };
 
-/* =========================================================
-   🖼️ WALLPAPER HOOKS
-========================================================= */
-
-/**
- * Hook to get wallpaper metadata and stats
- */
-export const useWallpaper = (wallpaperId?: string) => {
-  const [metadata, setMetadata] = useState<WallpaperMetadata | null>(null);
-  const [stats, setStats] = useState<WallpaperStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (!wallpaperId) {
-      setMetadata(null);
-      setStats(null);
-      setLoading(false);
-      return;
-    }
-
-    const loadData = async () => {
-      setLoading(true);
-      const [metaData, statsData] = await Promise.all([
-        getWallpaperMetadata(wallpaperId),
-        getWallpaperStats(wallpaperId),
-      ]);
-      setMetadata(metaData);
-      setStats(statsData);
-      setLoading(false);
-    };
-
-    loadData();
-  }, [wallpaperId]);
-
-  // Note: View recording is handled by useViewCount hook in WallpaperActions
-  // which has Pinterest-style quality filtering (3+ seconds = quality view)
-
-  return { metadata, stats, loading };
-};
-
-/**
- * Hook for realtime wallpaper stats
- */
-export const useRealtimeWallpaperStats = (wallpaperId?: string) => {
-  const [stats, setStats] = useState<WallpaperStats | null>(null);
-
-  useEffect(() => {
-    if (!wallpaperId) {
-      setStats(null);
-      return;
-    }
-
-    const unsubscribe = subscribeToWallpaperStats(wallpaperId, (data) => {
-      setStats(data);
-    });
-
-    return unsubscribe;
-  }, [wallpaperId]);
-
-  return stats;
-};
-
-/**
- * Hook to get wallpapers by category
- */
 export const useWallpapersByCategory = (
   categoryId: string,
   pageSize: number = 20
@@ -200,16 +101,12 @@ export const useWallpapersByCategory = (
       setWallpapers(data);
       setLoading(false);
     };
-
     loadWallpapers();
   }, [categoryId, pageSize]);
 
   return { wallpapers, loading };
 };
 
-/**
- * Hook for searching wallpapers
- */
 export const useSearchWallpapers = (query: string, pageSize: number = 20) => {
   const [wallpapers, setWallpapers] = useState<WallpaperMetadata[]>([]);
   const [loading, setLoading] = useState(false);
@@ -227,7 +124,6 @@ export const useSearchWallpapers = (query: string, pageSize: number = 20) => {
       setLoading(false);
     };
 
-    // Debounce search
     const timeoutId = setTimeout(search, 300);
     return () => clearTimeout(timeoutId);
   }, [query, pageSize]);
@@ -235,16 +131,13 @@ export const useSearchWallpapers = (query: string, pageSize: number = 20) => {
   return { wallpapers, loading };
 };
 
-/* =========================================================
-   ❤️ FAVORITES HOOKS
-========================================================= */
-
-/**
- * Hook for single wallpaper favorite state
- */
-export const useFavorite = (wallpaperId?: string, wallpaper?: { id?: string; slug: string; title: string; thumbnail?: string }) => {
+export const useFavorite = (
+  wallpaperId?: string,
+  wallpaperData?: { slug: string; title: string; thumbnail?: string }
+) => {
   const [isFaved, setIsFaved] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -253,42 +146,35 @@ export const useFavorite = (wallpaperId?: string, wallpaper?: { id?: string; slu
       return;
     }
 
-    const checkFavorite = async () => {
+    const check = async () => {
       const result = await isFavorited(user.uid, wallpaperId);
       setIsFaved(result);
     };
 
-    checkFavorite();
+    check();
   }, [user, wallpaperId]);
 
   const toggle = useCallback(async () => {
-    if (!user || !wallpaperId || !wallpaper) return;
+    if (!user || !wallpaperId) return;
 
-    setLoading(true);
+    const prev = isFaved;
+    setIsFaved(!prev);
+    setError(null);
     try {
-      if (isFaved) {
-        await removeFromFavorites(user.uid, wallpaperId);
-        setIsFaved(false);
-      } else {
-        await addToFavorites(user.uid, {
-          id: wallpaperId,
-          slug: wallpaper.slug,
-          title: wallpaper.title,
-          thumbnail: wallpaper.thumbnail,
-        });
-        setIsFaved(true);
+      const result = await toggleFavorite(user.uid, wallpaperId, wallpaperData);
+      if (result.error) {
+        setIsFaved(prev);
+        setError(result.error);
       }
-    } finally {
-      setLoading(false);
+    } catch {
+      setIsFaved(prev);
+      setError("Failed to update favorite");
     }
-  }, [user, wallpaperId, wallpaper, isFaved]);
+  }, [user, wallpaperId, wallpaperData, isFaved]);
 
-  return { isFavorited: isFaved, loading, toggle };
+  return { isFavorited: isFaved, loading, error, toggle };
 };
 
-/**
- * Hook for user's favorites (realtime)
- */
 export const useUserFavorites = () => {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,7 +199,7 @@ export const useUserFavorites = () => {
   const removeFavorite = useCallback(
     async (wallpaperId: string) => {
       if (!user) return;
-      await removeFromFavorites(user.uid, wallpaperId);
+      await toggleFavorite(user.uid, wallpaperId);
     },
     [user]
   );
@@ -321,124 +207,31 @@ export const useUserFavorites = () => {
   return { favorites, loading, removeFavorite };
 };
 
-/* =========================================================
-   👍 LIKES HOOKS
-========================================================= */
-
-/**
- * Hook for single wallpaper like state
- */
-export const useLike = (
-  wallpaperId?: string,
-  wallpaperData?: { slug: string; title: string; thumbnail?: string }
-) => {
-  const [liked, setLiked] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (!user || !wallpaperId) {
-      setLiked(false);
-      return;
-    }
-
-    const checkLike = async () => {
-      const result = await checkIsLiked(user.uid, wallpaperId);
-      setLiked(result);
-    };
-
-    checkLike();
-  }, [user, wallpaperId]);
-
-  const toggle = useCallback(async () => {
-    if (!user || !wallpaperId) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await toggleLike(user.uid, wallpaperId, wallpaperData);
-      if (result.error) {
-        setError(result.error);
-        // Refresh like status
-        const freshStatus = await checkIsLiked(user.uid, wallpaperId);
-        setLiked(freshStatus);
-      } else {
-        setLiked(result.liked);
-      }
-    } catch (err) {
-      setError("Failed to update like");
-    } finally {
-      setLoading(false);
-    }
-  }, [user, wallpaperId, wallpaperData]);
-
-  return { isLiked: liked, loading, error, toggle };
-};
-
-/**
- * Hook for user's likes (realtime - returns Set for O(1) lookup)
- */
-export const useUserLikes = () => {
-  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+export const useUserFavoriteCount = () => {
+  const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
   useEffect(() => {
     if (!user) {
-      setLikedIds(new Set());
+      setCount(0);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    const unsubscribe = subscribeToUserLikes(user.uid, (data) => {
-      setLikedIds(data);
+    const load = async () => {
+      setLoading(true);
+      const n = await getFavoriteCount(user.uid);
+      setCount(n);
       setLoading(false);
-    });
-
-    return unsubscribe;
-  }, [user]);
-
-  const isLikedById = useCallback(
-    (wallpaperId: string) => likedIds.has(wallpaperId),
-    [likedIds]
-  );
-
-  return { likedIds, loading, isLikedById };
-};
-
-/**
- * Hook for checking multiple likes at once
- */
-export const useMultipleLikes = (wallpaperIds: string[]) => {
-  const [likeMap, setLikeMap] = useState<Map<string, boolean>>(new Map());
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (!user || wallpaperIds.length === 0) {
-      setLikeMap(new Map());
-      return;
-    }
-
-    const checkLikes = async () => {
-      const result = await checkMultipleLikes(user.uid, wallpaperIds);
-      setLikeMap(result);
     };
 
-    checkLikes();
-  }, [user, wallpaperIds]);
+    load();
+  }, [user]);
 
-  return likeMap;
+  return { count, loading };
 };
 
-/* =========================================================
-   ⬇️ DOWNLOADS HOOKS
-========================================================= */
-
-/**
- * Hook for recording downloads (with rate limiting)
- */
 export const useDownload = (wallpaperId?: string, wallpaperSlug?: string) => {
   const [didDownload, setDidDownload] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -466,8 +259,7 @@ export const useDownload = (wallpaperId?: string, wallpaperSlug?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const result = await recordDownload({
-          userId: user?.uid,
+        const result = await recordDownload(user?.uid, {
           wallpaperId,
           wallpaperSlug,
           resolution,
@@ -494,9 +286,6 @@ export const useDownload = (wallpaperId?: string, wallpaperSlug?: string) => {
   return { hasDownloaded: didDownload, loading, error, download };
 };
 
-/**
- * Hook for user's downloads (realtime)
- */
 export const useUserDownloads = () => {
   const [downloads, setDownloads] = useState<Download[]>([]);
   const [loading, setLoading] = useState(true);
@@ -521,37 +310,31 @@ export const useUserDownloads = () => {
   return { downloads, loading };
 };
 
-/* =========================================================
-   📊 POPULAR & RECENT HOOKS
-========================================================= */
-
-/**
- * Hook for popular wallpapers
- */
-export const usePopularWallpapers = (
-  sortBy: "views" | "downloads" | "likes" | "favorites" = "downloads",
-  limitCount: number = 20
-) => {
-  const [wallpapers, setWallpapers] = useState<WallpaperStats[]>([]);
+export const useUserDownloadCount = () => {
+  const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) {
+      setCount(0);
+      setLoading(false);
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
-      const data = await getPopularWallpapers(sortBy, limitCount);
-      setWallpapers(data);
+      const n = await getDownloadCount(user.uid);
+      setCount(n);
       setLoading(false);
     };
 
     load();
-  }, [sortBy, limitCount]);
+  }, [user]);
 
-  return { wallpapers, loading };
+  return { count, loading };
 };
 
-/**
- * Hook for recent wallpapers
- */
 export const useRecentWallpapers = (limitCount: number = 20) => {
   const [wallpapers, setWallpapers] = useState<WallpaperMetadata[]>([]);
   const [loading, setLoading] = useState(true);
@@ -570,162 +353,50 @@ export const useRecentWallpapers = (limitCount: number = 20) => {
   return { wallpapers, loading };
 };
 
-/* =========================================================
-   📊 IMPRESSION & CLICK TRACKING HOOKS
-========================================================= */
-
-/**
- * Hook to record impression when wallpaper is shown
- * Use this when a wallpaper card is rendered in a grid/list
- */
-export const useImpression = (
-  wallpaperId: string,
-  options?: {
-    source?: "grid" | "featured" | "trending" | "search" | "category" | "related";
-    position?: number;
-  }
-) => {
-  const { user } = useAuth();
-
+export const useImpression = (slug: string) => {
   useEffect(() => {
-    if (!wallpaperId) return;
+    if (!slug) return;
 
-    // Generate or retrieve session ID
-    let sessionId = sessionStorage.getItem("wallpaper_session_id");
-    if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem("wallpaper_session_id", sessionId);
-    }
+    const key = `imp_${slug}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
 
-    // Fire and forget - don't await, handle errors silently
-    recordImpression({
-      wallpaperId,
-      userId: user?.uid,
-      sessionId,
-      position: options?.position,
-      source: options?.source || "grid",
-    }).catch(() => {
-      // Silently ignore errors - stats tracking should not break the UI
-    });
-  }, [wallpaperId, user?.uid, options?.source, options?.position]);
+    incrementImpressions(slug).catch(() => {});
+  }, [slug]);
 };
 
-/**
- * Hook to record click when user clicks to open wallpaper
- * Use this when user clicks on a wallpaper to view details
- */
-export const useClickTracking = (
-  wallpaperId: string,
-  options?: {
-    source?: "grid" | "featured" | "search" | "related" | "direct";
-  }
-) => {
-  const { user } = useAuth();
-
+export const useClickTracking = (slug: string) => {
   const trackClick = useCallback(() => {
-    if (!wallpaperId) return;
-
-    let sessionId = sessionStorage.getItem("wallpaper_session_id");
-    if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem("wallpaper_session_id", sessionId);
-    }
-
-    // Fire and forget - handle errors silently
-    recordClick({
-      wallpaperId,
-      userId: user?.uid,
-      sessionId,
-      source: options?.source || "grid",
-    }).catch(() => {
-      // Silently ignore errors - stats tracking should not break the UI
-    });
-  }, [wallpaperId, user?.uid, options?.source]);
+    if (!slug) return;
+    incrementClicks(slug).catch(() => {});
+  }, [slug]);
 
   return { trackClick };
 };
 
-/**
- * Hook to increment view count (for wallpaper detail page)
- */
-export const useViewCount = (wallpaperId?: string) => {
-  const { user } = useAuth();
-
+export const useViewCount = (slug?: string) => {
   useEffect(() => {
-    if (!wallpaperId) return;
+    if (!slug) return;
 
-    // Generate or retrieve session ID
-    let sessionId = sessionStorage.getItem("wallpaper_session_id");
-    if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem("wallpaper_session_id", sessionId);
-    }
+    const key = `viewed_${slug}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
 
-    // Only record view if not already tracked in this session
-    const viewedKey = `viewed_${wallpaperId}`;
-    if (!sessionStorage.getItem(viewedKey)) {
-      // Mark as being viewed immediately to prevent double-counting
-      sessionStorage.setItem(viewedKey, "tracking");
-
-      // Track view duration - Pinterest algorithm: only count quality views
-      const startTime = Date.now();
-      let recorded = false;
-
-      const recordQualityView = () => {
-        if (recorded) return; // Prevent double recording
-        const viewDuration = Date.now() - startTime;
-
-        // Only count if viewed for 3+ seconds (quality threshold)
-        if (viewDuration >= 3000) {
-          recorded = true;
-          // Mark as recorded
-          sessionStorage.setItem(viewedKey, "recorded");
-
-          recordView({
-            userId: user?.uid,
-            wallpaperId,
-            viewDuration,
-            sessionId,
-            deviceInfo: {
-              screenWidth: window.screen.width,
-              screenHeight: window.screen.height,
-            },
-          }).catch(() => {
-            // Silently ignore errors
-          });
-        }
-      };
-
-      // Set timeout - record after 3 seconds if still on page
-      const timeoutId = setTimeout(recordQualityView, 3000);
-
-      // Also listen for page unload
-      window.addEventListener("beforeunload", recordQualityView);
-
-      // Cleanup
-      return () => {
-        clearTimeout(timeoutId);
-        window.removeEventListener("beforeunload", recordQualityView);
-      };
-    }
-  }, [wallpaperId, user?.uid]);
+    incrementViews(slug).catch(() => {});
+  }, [slug]);
 };
 
 export default {
   useSyncUser,
   useUserProfile,
-  useWallpaper,
-  useRealtimeWallpaperStats,
   useWallpapersByCategory,
   useSearchWallpapers,
   useFavorite,
   useUserFavorites,
-  useLike,
-  useUserLikes,
-  useMultipleLikes,
+  useUserFavoriteCount,
   useDownload,
   useUserDownloads,
-  usePopularWallpapers,
+  useUserDownloadCount,
   useRecentWallpapers,
   useImpression,
   useClickTracking,

@@ -7,6 +7,7 @@ import { Download, ExternalLink, Monitor, Laptop, Smartphone, Calendar, HardDriv
 import { useAuth } from "@/lib/auth-context";
 import { useUserDownloads } from "@/lib/use-firestore";
 import type { Download as DownloadRecord } from "@/lib/firestore-types";
+import { createSlug } from "@/lib/slug";
 import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
 
 const deviceIcons = {
@@ -135,7 +136,7 @@ const DownloadCard = ({ wallpaperId, downloads, priority = false }: DownloadCard
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Link href={`/wallpaper/${latestDownload.wallpaperSlug}`} className="glass-card-link">
+      <Link href={`/wallpaper/${latestDownload.wallpaperId}/${latestDownload.wallpaperSlug}`} className="glass-card-link">
         {/* Background Image */}
         <div className="glass-card-image">
           <Image

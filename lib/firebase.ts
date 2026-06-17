@@ -37,13 +37,11 @@ const validateConfig = (): boolean => {
     firebaseConfig.appId,
   ];
 
-  const missing = required.filter(v => !v);
+  const keys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'appId'] as const;
+  const missingKeys = keys.filter((_, i) => !required[i]);
 
-  if (missing.length > 0) {
-    console.error(
-      "[Firebase] Missing required config:",
-      missing.map((_, i) => ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'appId'][i]).filter((_, i) => !missing[i])
-    );
+  if (missingKeys.length > 0) {
+    console.error("[Firebase] Missing required config:", missingKeys.join(", "));
     return false;
   }
 

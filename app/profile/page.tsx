@@ -15,6 +15,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useUserProfile, useUserFavorites, useUserDownloads } from "@/lib/use-firestore";
+import { useUserRoles } from "@/lib/use-user-roles";
+import { hasPermission } from "@/lib/roles";
 import {
   User,
   Settings,
@@ -33,8 +35,10 @@ import {
   Bell,
   Shield,
   Zap,
+  Layers,
 } from "lucide-react";
 import { signOut as firebaseSignOut, updateAuthProfile, updateUserFirestoreProfile } from "@/lib/auth";
+import { createSlug } from "@/lib/slug";
 import "./profile.css";
 
 import Header from "@/app/components/Header";
@@ -63,6 +67,7 @@ const MAX_BIO_LENGTH = 160;
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { roles } = useUserRoles();
   const { profile } = useUserProfile();
   const { favorites } = useUserFavorites();
   const { downloads } = useUserDownloads();
@@ -489,63 +494,78 @@ export default function ProfilePage() {
 
                       </div>
 
-          <motion.div
-            className="profile-actions"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.1 }}
-          >
-            <AnimatePresence mode="wait">
-              {isEditing ? (
-                <motion.div
-                  key="editing"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="action-buttons"
-                >
-                  <motion.button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="profile-btn profile-btn-primary"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {saving ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Save size={16} />
-                    )}
-                    {saving ? "Saving" : "Save"}
-                  </motion.button>
-                  <motion.button
-                    onClick={handleCancel}
-                    disabled={saving}
-                    className="profile-btn profile-btn-secondary"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <X size={16} />
-                    Cancel
-                  </motion.button>
-                </motion.div>
-              ) : (
-                <motion.button
-                  key="edit"
-                  onClick={() => setIsEditing(true)}
-                  className="profile-btn profile-btn-primary"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Edit3 size={16} />
-                  Edit profile
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </motion.div>
+              <motion.div
+                className="profile-actions"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.1 }}
+              >
+                <AnimatePresence mode="popLayout">
+                  {isEditing ? (
+                    <motion.div
+                      key="editing"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="action-buttons"
+                    >
+                      <motion.button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="profile-btn profile-btn-primary"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {saving ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Save size={16} />
+                        )}
+                        {saving ? "Saving" : "Save"}
+                      </motion.button>
+                      <motion.button
+                        onClick={handleCancel}
+                        disabled={saving}
+                        className="profile-btn profile-btn-secondary"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <X size={16} />
+                        Cancel
+                      </motion.button>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="edit"
+                      onClick={() => setIsEditing(true)}
+                      className="profile-btn profile-btn-primary"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Edit3 size={16} />
+                      Edit profile
+                    </motion.button>
+                  )}
+                  {user && hasPermission(user, "wallpaper.edit", roles) && (
+                    <motion.button
+                      key="studio"
+                      onClick={() => router.push("/studio")}
+                      className="profile-btn profile-btn-studio"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Layers size={16} />
+                      Studio CMS
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </motion.div>
 
           <AnimatePresence>
             {error && (
@@ -926,7 +946,7 @@ function FavoritesTab({ favorites }: { favorites: any[] }) {
             </div>
             <div className="favorite-info">
               <h3>{favorite.wallpaperTitle}</h3>
-              <Link href={`/wallpaper/${favorite.wallpaperSlug}`} className="favorite-link">
+              <Link href={`/wallpaper/${favorite.wallpaperId}/${createSlug(favorite.wallpaperTitle)}`} className="favorite-link">
                 View <ChevronRight size={16} />
               </Link>
             </div>
@@ -989,7 +1009,7 @@ function DownloadsTab({ downloads }: { downloads: any[] }) {
                 {download.downloadedAt?.toDate?.()?.toLocaleDateString() || "Recently"}
               </span>
             </div>
-            <Link href={`/wallpaper/${download.wallpaperSlug}`} className="download-link">
+            <Link href={`/wallpaper/${download.wallpaperId}/${download.wallpaperSlug}`} className="download-link">
               <motion.span whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                 <Download size={20} />
               </motion.span>

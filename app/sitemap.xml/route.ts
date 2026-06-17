@@ -33,6 +33,7 @@ import {
   resolveImageUrl,
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
@@ -187,6 +188,12 @@ async function buildEntries(): Promise<SitemapEntry[]> {
     priority: 0.8,
   });
   entries.push({
+    loc: `${SITE_URL}/popular`,
+    lastmod: LISTING_LASTMOD,
+    changefreq: "daily",
+    priority: 0.8,
+  });
+  entries.push({
     loc: `${SITE_URL}/edits`,
     lastmod: today,
     changefreq: "hourly",
@@ -199,64 +206,59 @@ async function buildEntries(): Promise<SitemapEntry[]> {
     priority: 0.8,
   });
 
-  // Category pages — each one gets a representative image (the
-  // first wallpaper in the category, using its Firestore imageUrl).
+  // Category pages — only include categories that have wallpapers.
   for (const category of categories) {
-    const first = wallpapers.find((w) => w.categoryId === category.id);
-    const imageUrl = first
-      ? toAbsoluteImageUrl(resolveImageUrl(first), SITE_URL) ??
-        `${SITE_URL}/wallpapers/${first.filename}`
-      : null;
-    const images: SitemapImage[] = imageUrl
-      ? [
-          {
-            url: imageUrl,
-            title: `${category.name} wallpapers on ${SITE_NAME}`,
-            caption: category.description
-              ? `${category.description} Download high-quality ${category.name.toLowerCase()} wallpapers.`
-              : `${category.name} wallpapers.`,
-          },
-        ]
-      : [];
+    const categoryWallpapers = wallpapers.filter((w) => w.categoryId === category.id);
+    if (categoryWallpapers.length === 0) continue;
+    const first = categoryWallpapers[0];
+    const imageUrl =
+      toAbsoluteImageUrl(resolveImageUrl(first), SITE_URL) ??
+      `${SITE_URL}/wallpapers/${first.filename}`;
     entries.push({
       loc: `${SITE_URL}/categories/${category.id}`,
       lastmod: LISTING_LASTMOD,
       changefreq: "daily",
       priority: 0.8,
-      images,
+      images: [
+        {
+          url: imageUrl,
+          title: `${category.name} wallpapers on ${SITE_NAME}`,
+          caption: category.description
+            ? `${category.description} Download high-quality ${category.name.toLowerCase()} wallpapers.`
+            : `${category.name} wallpapers.`,
+        },
+      ],
     });
   }
 
-  // Tag pages
+  // Tag pages — only include tags that have wallpapers.
   for (const tag of tags) {
-    const first = wallpapers.find((w) => w.tags.includes(tag.id));
-    const imageUrl = first
-      ? toAbsoluteImageUrl(resolveImageUrl(first), SITE_URL) ??
-        `${SITE_URL}/wallpapers/${first.filename}`
-      : null;
-    const images: SitemapImage[] = imageUrl
-      ? [
-          {
-            url: imageUrl,
-            title: `${tag.name} wallpapers on ${SITE_NAME}`,
-            caption: `Browse ${tag.name} wallpapers. Free downloads in HD, 4K, and 8K.`,
-          },
-        ]
-      : [];
+    const tagWallpapers = wallpapers.filter((w) => w.tags.includes(tag.id));
+    if (tagWallpapers.length === 0) continue;
+    const first = tagWallpapers[0];
+    const imageUrl =
+      toAbsoluteImageUrl(resolveImageUrl(first), SITE_URL) ??
+      `${SITE_URL}/wallpapers/${first.filename}`;
     entries.push({
       loc: `${SITE_URL}/tag/${tag.id}`,
       lastmod: LISTING_LASTMOD,
       changefreq: "weekly",
       priority: 0.7,
-      images,
+      images: [
+        {
+          url: imageUrl,
+          title: `${tag.name} wallpapers on ${SITE_NAME}`,
+          caption: `Browse ${tag.name} wallpapers. Free downloads in HD, 4K, and 8K.`,
+        },
+      ],
     });
   }
 
   // Wallpaper pages — each one gets a fully-titled image entry.
-  // Hidden wallpapers (`visible === false`) are excluded so they
+  // Hidden, unpublished, and deleted wallpapers are excluded so they
   // never appear in search engines.
   for (const wallpaper of wallpapers) {
-    if (wallpaper.visible === false) continue;
+    if (wallpaper.visible === false || wallpaper.published === false || wallpaper.deleted) continue;
 
     const lastmod = wallpaper.uploadDate
       ? new Date(wallpaper.uploadDate).toISOString().slice(0, 10)
@@ -275,7 +277,7 @@ async function buildEntries(): Promise<SitemapEntry[]> {
       `${SITE_URL}/wallpapers/${wallpaper.filename}`;
 
     entries.push({
-      loc: `${SITE_URL}/wallpaper/${wallpaper.slug}`,
+      loc: `${SITE_URL}/wallpaper/${wallpaper.id}/${createSlug(wallpaper.title)}`,
       lastmod,
       changefreq: "monthly",
       priority: 0.7,

@@ -1,20 +1,21 @@
 import { Metadata } from "next";
-import Link from "next/link";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
-import WallpaperGrid from "../components/WallpaperGrid";
-import SearchBar from "../components/SearchBar";
-import CategoryList from "../components/CategoryList";
+import { Suspense } from "react";
+import FilteredListing from "../components/filters/FilteredListing";
 import {
-  categories,
   getFeaturedWallpapers as getStaticFeatured,
   type Wallpaper,
 } from "../lib/wallpapers";
-import { getFeaturedWallpapersServer } from "@/lib/wallpaper-store-server";
+import {
+  getFeaturedWallpapersServer,
+  listCategoriesServer,
+  listTagsServer,
+} from "@/lib/wallpaper-store-server";
+import Link from "next/link";
 import {
   resolveImageUrl,
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
+import { createSlug } from "@/lib/slug";
 import { ArrowLeft } from "lucide-react";
 
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
@@ -57,7 +58,15 @@ async function loadFeaturedWallpapers(): Promise<Wallpaper[]> {
 }
 
 export default async function FeaturedPage() {
-  const featuredWallpapers = await loadFeaturedWallpapers();
+  const [featuredWallpapers, allCategories, allTags] = await Promise.all([
+    loadFeaturedWallpapers(),
+    listCategoriesServer(),
+    listTagsServer(),
+  ]);
+
+  const catOptions = allCategories.map((c) => ({ id: c.id, name: c.name }));
+  const tagOptions = allTags.map((t) => ({ id: t.id, name: t.name }));
+
   const featuredImageUrl =
     toAbsoluteImageUrl(resolveImageUrl(featuredWallpapers[0]), SITE_URL) ??
     (featuredWallpapers[0]?.filename
@@ -101,7 +110,7 @@ export default async function FeaturedPage() {
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
-      url: `${SITE_URL}/wallpaper/${w.slug}`,
+      url: `${SITE_URL}/wallpaper/${w.id}/${createSlug(w.title)}`,
       image:
         toAbsoluteImageUrl(resolveImageUrl(w), SITE_URL) ??
         `${SITE_URL}/wallpapers/${w.filename}`,
@@ -119,33 +128,23 @@ export default async function FeaturedPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       ))}
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 pt-20" role="main" id="main-content">
-          <div className="container mx-auto px-4">
-            <nav className="py-4" aria-label="Breadcrumb">
-              <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
-                <ArrowLeft size={16} className="mr-1" /> Back to Home
-              </Link>
-            </nav>
-
-            <h1 className="text-2xl font-bold mb-6">Featured Wallpapers</h1>
-
-            <section className="mb-6" aria-label="Search">
-              <SearchBar />
-            </section>
-
-            <section className="mb-8" aria-label="Categories">
-              <CategoryList categories={categories} />
-            </section>
-
-            <section aria-label="Featured wallpapers">
-              <WallpaperGrid wallpapers={featuredWallpapers} source="featured" />
-            </section>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <Suspense fallback={<div className="min-h-screen bg-black" />}>
+        <FilteredListing
+          wallpapers={featuredWallpapers}
+          categories={catOptions}
+          tags={tagOptions}
+          header={
+            <>
+              <nav className="py-4" aria-label="Breadcrumb">
+                <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-primary">
+                  <ArrowLeft size={16} className="mr-1" /> Back to Home
+                </Link>
+              </nav>
+              <h1 className="text-2xl font-bold mb-6">Featured Wallpapers</h1>
+            </>
+          }
+        />
+      </Suspense>
     </>
   );
 }

@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Trash2, Heart, Calendar } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useUserFavorites } from "@/lib/use-firestore";
-import { toggleLike } from "@/lib/firestore";
+import { toggleFavorite } from "@/lib/firestore";
+import { createSlug } from "@/lib/slug";
 import type { Favorite } from "@/lib/firestore-types";
 
 export const FavoritesContent = () => {
@@ -17,9 +18,9 @@ export const FavoritesContent = () => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Remove from favorites AND un-like (sync - toggleLike handles both)
+    // Remove from favorites (toggleFavorite handles removal)
     if (user) {
-      await toggleLike(user.uid, favorite.wallpaperId);
+      await toggleFavorite(user.uid, favorite.wallpaperId);
     }
   };
 
@@ -119,7 +120,7 @@ const FavoriteCard = ({ favorite, onRemove, priority = false }: FavoriteCardProp
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Link href={`/wallpaper/${favorite.wallpaperSlug}`} className="glass-card-link">
+      <Link href={`/wallpaper/${favorite.wallpaperId}/${createSlug(favorite.wallpaperTitle)}`} className="glass-card-link">
         {/* Background Image */}
         <div className="glass-card-image">
           <Image

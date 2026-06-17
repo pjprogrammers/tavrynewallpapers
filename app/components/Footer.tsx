@@ -1,17 +1,10 @@
 import Link from 'next/link';
-import { 
-  Github, 
-  Twitter, 
-  Facebook, 
-  Instagram, 
-  Globe, 
-  Mail, 
+import {
+  Github,
+  Twitter,
+  Instagram,
   Heart,
   Download,
-  Tag,
-  Image as ImageIcon,
-  Monitor,
-  Star
 } from 'lucide-react';
 import { categories } from '../lib/wallpapers';
 
@@ -34,16 +27,13 @@ const Footer = () => {
               Your ultimate source for high-quality wallpapers. Download and share stunning wallpapers for any device.
             </p>
             <div className="social-links">
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Twitter">
+              <a href="https://twitter.com/tavrynewallpapers" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Twitter">
                 <Twitter size={18} />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Instagram">
+              <a href="https://instagram.com/tavrynewallpapers" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Instagram">
                 <Instagram size={18} />
               </a>
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Facebook">
-                <Facebook size={18} />
-              </a>
-              <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Github">
+              <a href="https://github.com/tavryne" target="_blank" rel="noopener noreferrer" className="social-link" aria-label="Github">
                 <Github size={18} />
               </a>
             </div>
@@ -134,24 +124,14 @@ const Footer = () => {
               <h3 className="footer-column-title">Support</h3>
               <ul className="footer-links">
                 <li>
-                  <a href="#" className="footer-link">
+                  <a href="mailto:contact@tavrynewallpapers.vercel.app" className="footer-link">
                     Contact Us
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="footer-link">
-                    FAQ
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="footer-link">
-                    Privacy Policy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="footer-link">
-                    Terms of Service
-                  </a>
+                  <Link href="/edits" className="footer-link">
+                    Recent Edits
+                  </Link>
                 </li>
               </ul>
               
