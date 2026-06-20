@@ -81,7 +81,7 @@ export default function AllWallpapersContent({ initialWallpapers, categories, ta
               </div>
             </div>
 
-            <WallpaperGrid wallpapers={filtered} source="category" />
+            <WallpaperGrid wallpapers={filtered} />
           </div>
         </section>
       </main>

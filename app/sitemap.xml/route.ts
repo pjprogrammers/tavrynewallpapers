@@ -163,7 +163,7 @@ async function buildEntries(): Promise<SitemapEntry[]> {
         url: `${SITE_URL}/og-image.png`,
         title: `${SITE_NAME} — 4K, HD, 8K Wallpapers`,
         caption:
-          "Free 4K, HD, and 8K wallpapers for desktop and mobile — anime, gaming, cyberpunk, nature, and more.",
+          "Tavryne Wallpapers — free 4K, HD, and 8K wallpapers for desktop and mobile. Anime, gaming, cyberpunk, nature, and more.",
       },
     ],
   });
@@ -224,8 +224,8 @@ async function buildEntries(): Promise<SitemapEntry[]> {
           url: imageUrl,
           title: `${category.name} wallpapers on ${SITE_NAME}`,
           caption: category.description
-            ? `${category.description} Download high-quality ${category.name.toLowerCase()} wallpapers.`
-            : `${category.name} wallpapers.`,
+            ? `${category.description} Download high-quality ${category.name.toLowerCase()} wallpapers on Tavryne Wallpapers.`
+            : `${category.name} wallpapers on Tavryne Wallpapers.`,
         },
       ],
     });
@@ -248,7 +248,7 @@ async function buildEntries(): Promise<SitemapEntry[]> {
         {
           url: imageUrl,
           title: `${tag.name} wallpapers on ${SITE_NAME}`,
-          caption: `Browse ${tag.name} wallpapers. Free downloads in HD, 4K, and 8K.`,
+            caption: `Browse ${tag.name} wallpapers on Tavryne Wallpapers. Free downloads in HD, 4K, and 8K.`,
         },
       ],
     });

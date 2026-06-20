@@ -94,7 +94,7 @@ export const metadata: Metadata = {
     SITE_NAME,
     SITE_ALTERNATE_NAME,
     'Tavryne',
-    'Tavryne wallpapers',
+    'tavryne wallpapers',
     'wallpapers',
     '4K wallpapers',
     '8K wallpapers',
@@ -252,6 +252,12 @@ export function generateOrganizationSchema() {
       'Mobile Wallpapers',
     ],
     inLanguage: 'en',
+    areaServed: 'Worldwide',
+    about: {
+      '@type': 'Thing',
+      name: 'Wallpaper Downloads',
+      description: 'High-quality 4K, HD, and 8K wallpapers for desktop and mobile devices.',
+    },
     sameAs: [
       'https://twitter.com/tavrynewallpapers',
       'https://instagram.com/tavrynewallpapers',

@@ -27,10 +27,14 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `Featured Wallpapers | ${SITE_NAME}`,
-  description: "Discover our curated collection of handpicked featured wallpapers. High-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.",
+  description: "Discover our curated collection of handpicked featured wallpapers on Tavryne Wallpapers. High-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.",
   keywords: ["featured wallpapers", "best wallpapers", "curated wallpapers", "top wallpapers", "premium wallpapers", SITE_NAME],
   alternates: {
     canonical: `${SITE_URL}/featured`,
+    languages: {
+      en: `${SITE_URL}/featured`,
+      'x-default': `${SITE_URL}/featured`,
+    },
   },
   openGraph: {
     type: "website",
@@ -38,13 +42,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/featured`,
     siteName: SITE_NAME,
     title: `Featured Wallpapers | ${SITE_NAME}`,
-    description: "Discover our curated collection of handpicked featured wallpapers.",
+    description: "Discover handpicked featured wallpapers on Tavryne Wallpapers.",
     images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: `Featured Wallpapers | ${SITE_NAME}`,
-    description: "Discover our curated collection of handpicked featured wallpapers.",
+    description: "Discover handpicked featured wallpapers on Tavryne Wallpapers.",
     images: [`${SITE_URL}/og-image.png`],
   },
 };

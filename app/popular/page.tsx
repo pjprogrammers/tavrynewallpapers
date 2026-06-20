@@ -42,6 +42,10 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: `${SITE_URL}/popular`,
+    languages: {
+      en: `${SITE_URL}/popular`,
+      'x-default': `${SITE_URL}/popular`,
+    },
   },
   openGraph: {
     type: "website",
@@ -183,7 +187,7 @@ export default async function PopularPage() {
               <h2 id="most-downloaded-title" className="text-xl font-bold mb-4">
                 Most Downloaded
               </h2>
-              <WallpaperGrid wallpapers={popular} source="trending" />
+              <WallpaperGrid wallpapers={popular} />
             </section>
 
             {/* Most viewed — uses composite-free
@@ -192,7 +196,7 @@ export default async function PopularPage() {
               <h2 id="most-viewed-title" className="text-xl font-bold mb-4">
                 Most Viewed
               </h2>
-              <WallpaperGrid wallpapers={mostViewed} source="featured" />
+              <WallpaperGrid wallpapers={mostViewed} />
             </section>
 
             {/* Trending — composite (trending ASC, updatedAt DESC) */}
@@ -200,7 +204,7 @@ export default async function PopularPage() {
               <h2 id="trending-title" className="text-xl font-bold mb-4">
                 Trending This Week
               </h2>
-              <WallpaperGrid wallpapers={staticTrending} source="trending" />
+              <WallpaperGrid wallpapers={staticTrending} />
             </section>
           </div>
         </main>

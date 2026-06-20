@@ -58,6 +58,7 @@ next-env.d.ts
 .vscode/
 .claude/
 .opencode/
+.playwright-mcp
 
 # Agent configs & skill templates (environment-specific)
 .agents/

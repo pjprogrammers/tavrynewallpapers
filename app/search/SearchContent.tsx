@@ -88,7 +88,7 @@ export default function SearchContent({
 
           {filtered.length > 0 ? (
             <section aria-label="Search results">
-              <WallpaperGrid wallpapers={filtered} source="search" />
+              <WallpaperGrid wallpapers={filtered} />
             </section>
           ) : (
             <div className="text-center py-16">

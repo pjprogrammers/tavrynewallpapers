@@ -100,7 +100,7 @@ export default function CategoryPageContent({ categoryId, category, initialWallp
             </nav>
 
             <header className="max-w-2xl">
-              <h1 id="category-page-title" className="text-3xl font-bold mb-2">{category.name}</h1>
+              <h1 id="category-page-title" className="text-3xl font-bold mb-2">{categoryId === "all" ? category.name : `${category.name} Wallpapers`}</h1>
               {category.description && (
                 <p className="text-muted-foreground mb-4">
                   {category.description}
@@ -186,8 +186,7 @@ export default function CategoryPageContent({ categoryId, category, initialWallp
           <section aria-label="Wallpapers in this category">
             <WallpaperGrid
               wallpapers={filtered}
-              source="category"
-              className={viewMode === 1 ? "grid-cols-2" : viewMode === 3 ? "grid-cols-4" : ""}
+              columnCount={viewMode === 1 ? 2 : viewMode === 3 ? 5 : undefined}
             />
           </section>
 

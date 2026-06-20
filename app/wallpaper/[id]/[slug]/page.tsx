@@ -109,6 +109,10 @@ export async function generateMetadata({ params }: WallpaperPageProps): Promise<
 
     alternates: {
       canonical: canonicalUrl,
+      languages: {
+        en: canonicalUrl,
+        'x-default': canonicalUrl,
+      },
     },
 
     robots: {
@@ -212,6 +216,10 @@ async function buildWallpaperJsonLd(id: string) {
       inLanguage: "en",
       isFamilyFriendly: true,
       representativeOfPage: true,
+      mainEntityOfPage: {
+        "@type": "WebPage",
+        "@id": pageUrl,
+      },
       primaryImageOfPage: {
         "@type": "ImageObject",
         url: imageUrl,

@@ -52,7 +52,7 @@ export default function TagPageContent({
 
           <header className="flex items-center gap-3 mb-6">
             <Tag size={24} className="text-primary" />
-            <h1 className="text-2xl font-bold">{tagName}</h1>
+            <h1 className="text-2xl font-bold">{tagName} Wallpapers</h1>
           </header>
 
           <section className="mb-6" aria-label="Search">

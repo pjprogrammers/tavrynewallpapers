@@ -26,6 +26,26 @@ Built with Next.js 16 App Router, React Server Components, and Firebase.
 
 ## 📋 Recent Changes
 
+### 2026-06-20 — Pinterest-Grade Masonry + Wallpaper Preview System
+
+- **Custom JS masonry layout engine** (`lib/masonry-engine.ts`) — shortest‑column placement with height tracking, absolute positioning, soft round‑robin balancing, deterministic hash‑based colored placeholders, aspect ratio resolver with fallback chain. Replaces `react-masonry-css`.
+- **MasonryGrid** (`app/components/MasonryGrid.tsx`) — ResizeObserver, scroll‑velocity adaptive prefetch buffer (350–2800 px), viewport‑culled virtualization (center + 1.5× viewport), IntersectionObserver infinite scroll trigger, `is-scrolling` gesture suppression class.
+- **MasonryCard** (`app/components/MasonryCard.tsx`) — Progressive image reveal (colored placeholder → fade‑in), hover save button (Pinterest red), mini floating save button on touch devices, long‑press save, click‑suppression during scroll, download action, recency badge.
+- **WallpaperPreview** (`app/components/WallpaperPreview.tsx`) — Full‑screen instant preview overlay. Image decode → animate in sequence (backdrop blur, container scale, bar slide‑up). Prev/next keyboard & button navigation. Fade‑out on close with body scroll lock. iOS swipe‑back prevention.
+- **Motion coherence tuning** — All card entry, hover, overlay, save, and action button transitions unified to `cubic-bezier(0.16, 1, 0.3, 1)`. Preview uses distinct exit curve (`cubic-bezier(0.4, 0, 0.68, 0.06)`). `prefers-reduced-motion` fully supported.
+- **Gesture refinement** — `touch-action: pan-y` on grid, `overscroll-behavior: contain` on preview, left‑edge touch preventDefault for iOS swipe‑back guard.
+- **WallpaperGrid / WallpaperGridWithStats / FeaturedGridWithStats** — All updated to delegate to `MasonryGrid` internally. `source` prop removed throughout.
+- **Category page view mode** — `columnCount` prop (2, 5, or responsive) instead of CSS‑grid classes.
+- **Build** — 27 pages, 0 TypeScript errors.
+
+### 2026-06-20 — Masonry Card Hover Redesign
+
+- **Hover data panel** — Compact 2‑row hover overlay with category badge, tags (pills), resolution, stats (views/downloads/favorites), and download icon — replaces the former multi‑row layout.
+- **Heart-only save button** — Removed red Pinterest pill and "Save"/"Saved" text. Hover now shows a round dark heart‑icon button (turns red when liked).
+- **Title hidden on hover** — Footer title + recency badge are visible by default and disappear on hover, revealing the card data panel in its place.
+- **No redundant download buttons** — Removed the duplicate round download‑icon from the overlay; single download button at the end of the info row.
+- **Touch devices unchanged** — Mini floating save button and long‑press remain, no hover overlays.
+
 ### 2026-06-17 — Data Architecture Consolidation
 
 - **Likes merged into Favorites** — The separate `likes` collection, `toggleLike`, `isLiked`, and like-specific hooks are removed. Liking a wallpaper is now equivalent to favoriting it. The counter field on wallpaper docs is `favorites` (not `likes`).
@@ -164,9 +184,12 @@ Built with Next.js 16 App Router, React Server Components, and Firebase.
 | **Framer Motion** | Micro-interactions, page transitions, staggered grid animations |
 | **Glass-morphism** | Cards with backdrop blur, glowing borders |
 | **Responsive design** | Mobile-first with collapsible nav, filter drawer, slide-in mobile menu |
-| **Masonry layout** | `react-masonry-css` for wallpaper grids |
+| **Custom JS masonry engine** | Pinterest-grade absolute‑positioned layout with ResizeObserver, scroll‑velocity adaptive prefetch (350–2800 px), viewport‑culled virtualization, soft round‑robin column balancing, deterministic colored placeholders from hash |
+| **Full‑screen preview** | Instant overlay with decode‑then‑animate entrance, keyboard navigation (arrows + Escape), prev/next buttons, backdrop blur, scroll lock, iOS swipe‑back guard, heart + download + view-details actions |
+| **Card hover redesign** | Title visible by default, hidden on hover — replaced by a compact data panel (category badge, tags, resolution, stats row, download icon) and a heart-only save button (no text, no red background). Single download button. |
+| **Touch interactions** | Hover/split hover‑none split, long‑press save on mobile, mini floating save button, scroll‑suppressed click prevention on fast scroll, `touch-action: pan-y` grid |
 | **Accessibility** | `role="main"`, `aria-label`, `aria-labelledby`, semantic HTML, breadcrumb nav |
-| **Image preview** | On-hover zoom effects, lazy loading |
+| **Image reveal** | Progressive colored placeholder → smooth fade‑in on decode, hover scale effect |
 
 ### 📱 Performance & SEO
 
@@ -245,7 +268,7 @@ Built with Next.js 16 App Router, React Server Components, and Firebase.
 | **Deployment** | Vercel (edge-ready) |
 | **State Management** | Zustand (lightweight stores) |
 | **Icons** | Lucide React |
-| **Masonry Layout** | react-masonry-css |
+| **Masonry Layout** | Custom JS engine — height‑tracked absolute positioning, ResizeObserver, scroll‑velocity adaptive prefetch, viewport culling |
 | **CLI Runner** | `tsx` (TypeScript execution for scripts) |
 | **Package Manager** | npm |
 
@@ -614,10 +637,13 @@ tavrynewallpapers/
 │   └── components/
 │       ├── Header.tsx                     # Main site header (553 lines — nav, search, user menu, mobile drawer)
 │       ├── Footer.tsx                     # Site footer
+│       ├── MasonryGrid.tsx               # Pinterest-grade masonry — JS layout engine, virtualization, adaptive prefetch
+│       ├── MasonryCard.tsx               # Masonry card — progressive image reveal, compact hover data panel (category, tags, stats, download), heart-only save button, title hidden on hover, long-press, touch gestures
+│       ├── WallpaperPreview.tsx          # Full-screen preview overlay — decode-then-animate, keyboard nav, scroll lock
 │       ├── WallpaperCard.tsx              # Grid card with image, title, stats, hover effects
-│       ├── WallpaperGrid.tsx              # Masonry grid layout wrapper
-│       ├── WallpaperGridWithStats.tsx     # Grid with live stat subscriptions
-│       ├── FeaturedGridWithStats.tsx      # Featured grid with live stat subscriptions
+│       ├── WallpaperGrid.tsx              # Compatibility shim that delegates to MasonryGrid
+│       ├── WallpaperGridWithStats.tsx     # Grid with live stat subscriptions, delegates to MasonryGrid
+│       ├── FeaturedGridWithStats.tsx      # Featured grid with live stat subscriptions, delegates to MasonryGrid
 │       ├── SearchBar.tsx                  # Reusable search input
 │       ├── CategoryList.tsx              # Category pills/strip
 │       ├── CategorySelect.tsx            # Category dropdown selector
@@ -1233,6 +1259,31 @@ Time display helpers for formatting wallpaper dates.
 
 ---
 
+### Masonry Layout Engine
+
+**File:** `lib/masonry-engine.ts`
+
+The heart of the Pinterest-grade masonry system — a zero-dependency JavaScript layout engine that computes absolute positions for variable-height items in a fixed-column grid.
+
+| Export | Description |
+|:-------|:------------|
+| `getColumnCount(containerWidth)` | Responsive column count: 5 (≥1280px), 4 (≥1024px), 3 (≥640px), 2 (≥480px), 1 (below) |
+| `getColumnWidth(containerWidth, columnCount, gap)` | Computes column width given container width, column count, and gap |
+| `computeMasonryLayout(items, columnCount, columnWidth, gap)` | Main layout function — assigns each item to the shortest column, returns `{ positions: MasonryPosition[], containerHeight: number }` |
+| `getWallpaperAspectRatio(wallpaper)` | Resolves aspect ratio from Firestore metadata with fallback chain: `{width, height}` → `aspectRatio` string → `16/9` default |
+| `hashIdToColor(id)` | Deterministic hex color from document ID string (for colored placeholders) |
+| `MasonryPosition` | Interface: `{ left, top, width, height }` — the absolute position for each card |
+| `MasonryItem` | Interface: `{ aspectRatio: number }` — input shape for layout computation |
+
+**Key design decisions:**
+
+1. **Full recompute on every change** — positions are recalculated from scratch when the wallpapers array changes, guaranteeing zero cumulative drift.
+2. **Soft round-robin balancing** — the shortest-column heuristic is biased with a rotation across columns to prevent the first column from being systematically taller.
+3. **Deterministic placeholders** — `hashIdToColor()` generates a consistent pastel hue from the document ID, eliminating blank white flashes during image decode without server-side blurhash.
+4. **Aspect ratio fallback chain** — engine prefers explicit `{width, height}`, falls back to `aspectRatio` string like `"16:9"`, then defaults to `16/9`.
+
+---
+
 ## 🧩 Component Reference
 
 ### Layout Components
@@ -1247,10 +1298,13 @@ Time display helpers for formatting wallpaper dates.
 
 | Component | File | Props | Description |
 |:----------|:-----|:------|:------------|
-| `WallpaperCard` | `app/components/WallpaperCard.tsx` | `wallpaper, source?` | Grid card with thumbnail, title, category, stats (views/downloads/likes), hover zoom effect |
-| `WallpaperGrid` | `app/components/WallpaperGrid.tsx` | `wallpapers[], source?` | Masonry grid layout using `react-masonry-css` |
-| `WallpaperGridWithStats` | `app/components/WallpaperGridWithStats.tsx` | `wallpapers[], source?` | Grid with live stat subscription per card |
-| `FeaturedGridWithStats` | `app/components/FeaturedGridWithStats.tsx` | `wallpapers[], source?` | Featured grid variant with live stats |
+| `WallpaperCard` | `app/components/WallpaperCard.tsx` | `wallpaper` | Grid card with thumbnail, title, category, stats (views/downloads/likes), hover zoom effect |
+| `MasonryGrid` | `app/components/MasonryGrid.tsx` | `wallpapers[], columnCount?, gap?, onLoadMore?, className?` | Pinterest‑grade masonry grid — custom JS layout engine with ResizeObserver, scroll‑velocity adaptive prefetch (350–2800 px), viewport‑culled virtualization, IntersectionObserver infinite scroll, gesture suppression via `.is-scrolling` |
+| `MasonryCard` | `app/components/MasonryCard.tsx` | `wallpaper, position: MasonryPosition, priority?, onPreview?` | Individual card for `MasonryGrid` — absolute positioned by engine, progressive image reveal (colored placeholder → fade‑in), hover save button (Pinterest red), mini floating save on touch, long‑press save, click‑suppression during scroll, download, recency badge |
+| `WallpaperPreview` | `app/components/WallpaperPreview.tsx` | `wallpaper, onClose, onPrev?, onNext?, hasPrev?, hasNext?` | Full‑screen image preview overlay — 3‑phase animation (backdrop → image → bar), pre‑decodes image before showing, keyboard + button navigation, staggered exit, body scroll lock, iOS swipe‑back guard |
+| `WallpaperGrid` | `app/components/WallpaperGrid.tsx` | `wallpapers[]` | Compatibility shim that delegates to `MasonryGrid` |
+| `WallpaperGridWithStats` | `app/components/WallpaperGridWithStats.tsx` | `wallpapers[]` | Grid with live stat subscription per card, delegates to `MasonryGrid` |
+| `FeaturedGridWithStats` | `app/components/FeaturedGridWithStats.tsx` | `wallpapers[]` | Featured grid variant with live stats, delegates to `MasonryGrid` |
 | `SearchBar` | `app/components/SearchBar.tsx` | (none) | Search input that navigates to `/search?q=...` |
 | `CategoryList` | `app/components/CategoryList.tsx` | `categories[]` | Horizontal strip of category pills |
 | `CategorySelect` | `app/components/CategorySelect.tsx` | (select props) | Category dropdown |

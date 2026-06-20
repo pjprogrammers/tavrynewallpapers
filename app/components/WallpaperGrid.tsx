@@ -1,34 +1,26 @@
 "use client";
 
 import { Wallpaper } from "../lib/wallpapers";
-import WallpaperCard from "./WallpaperCard";
-import { useEffect, useState } from "react";
+import MasonryGrid from "./MasonryGrid";
 
 interface WallpaperGridProps {
   wallpapers: Wallpaper[];
   className?: string;
-  source?: "grid" | "featured" | "trending" | "search" | "category" | "related";
+  columnCount?: number;
 }
 
-const WallpaperGrid = ({ wallpapers, className = "", source = "grid" }: WallpaperGridProps) => {
+const WallpaperGrid = ({
+  wallpapers,
+  className = "",
+  columnCount,
+}: WallpaperGridProps) => {
   return (
-    <div className={`wallpaper-grid ${className}`}>
-      {wallpapers.map((wallpaper, index) => (
-        <WallpaperCard
-          key={wallpaper.id}
-          wallpaper={wallpaper}
-          priority={index < 4}
-          source={source}
-        />
-      ))}
-      
-      {wallpapers.length === 0 && (
-        <div className="wallpaper-grid-empty">
-          <p>No wallpapers found</p>
-        </div>
-      )}
-    </div>
+    <MasonryGrid
+      wallpapers={wallpapers}
+      className={className}
+      columnCount={columnCount}
+    />
   );
 };
 
-export default WallpaperGrid; 
+export default WallpaperGrid;

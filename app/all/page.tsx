@@ -41,6 +41,10 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     alternates: {
       canonical: `${SITE_URL}/all`,
+      languages: {
+        en: `${SITE_URL}/all`,
+        'x-default': `${SITE_URL}/all`,
+      },
     },
     openGraph: {
       type: "website",
