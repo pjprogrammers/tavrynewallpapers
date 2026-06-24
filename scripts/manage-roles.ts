@@ -101,6 +101,7 @@ async function setCustomClaimsAndMirror(
   if (snap.exists) {
     await userRef.update({
       roles: rolesObj,
+      updatedAt: new Date(),
     });
   } else {
     // Create a minimal user document. The user will get a richer profile
@@ -113,6 +114,7 @@ async function setCustomClaimsAndMirror(
       provider: "password",
       isActive: true,
       createdAt: new Date(),
+      updatedAt: new Date(),
       lastLogin: new Date(),
       roles: rolesObj,
     });

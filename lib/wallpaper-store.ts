@@ -32,6 +32,8 @@ import {
   type Unsubscribe,
   onSnapshot,
   Timestamp,
+  type DocumentData,
+  type FirestoreError,
 } from "firebase/firestore";
 
 import { getDB } from "./firebase";
@@ -1049,21 +1051,19 @@ export async function checkImageUrlExists(
   excludeId?: string
 ): Promise<boolean> {
   try {
-    return await runTransaction(getDB(), async (tx) => {
-      const q = query(
-        collection(getDB(), COLLECTIONS.WALLPAPERS),
-        where("imageUrl", "==", imageUrl),
-        limitFn(1)
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return false;
-      if (excludeId) {
-        const candidate = snap.docs[0];
-        const data = candidate.data();
-        if (String(data.id) === excludeId) return false;
-      }
-      return true;
-    });
+    const q = query(
+      collection(getDB(), COLLECTIONS.WALLPAPERS),
+      where("imageUrl", "==", imageUrl),
+      limitFn(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return false;
+    if (excludeId) {
+      const candidate = snap.docs[0];
+      const data = candidate.data();
+      if (String(data.id) === excludeId) return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -1131,6 +1131,51 @@ export async function getAllWallpapersForStudio(
   } catch (err) {
     console.warn("[wallpaper-store] getAllWallpapersForStudio failed:", err);
     return [];
+  }
+}
+
+/* =========================================================
+   🔍 SEARCH
+   ───────────
+   Routes through GET /api/search (Admin SDK) which uses
+   a lightweight FlexSearch index (only id + 4 text fields,
+   no full docs). The server returns matching IDs, then the
+   client resolves them against the pre-loaded full list
+   so every card gets its full metadata (stats, badges, …).
+
+   Falls back to allWallpapers when query is empty (admin
+   "show all" path, still behind auth guard).
+========================================================= */
+
+export async function searchWallpapers(
+  q: string,
+  allWallpapers: WallpaperMetadata[],
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ wallpapers: WallpaperMetadata[]; total: number; page: number; pageSize: number }> {
+  if (!q || !q.trim()) {
+    return { wallpapers: allWallpapers, total: allWallpapers.length, page: 1, pageSize: allWallpapers.length };
+  }
+
+  const trimmed = q.trim();
+  if (trimmed.length < 2 || trimmed.length > 100) {
+    return { wallpapers: [], total: 0, page: 1, pageSize };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      q: trimmed,
+      page: String(page),
+      pageSize: String(pageSize),
+    });
+    const res = await fetch(`/api/search?${params}`);
+    if (!res.ok) return { wallpapers: [], total: 0, page: 1, pageSize };
+    const json = await res.json() as { ids: string[]; total: number; page: number; pageSize: number };
+    const idSet = new Set(json.ids);
+    const wallpapers = allWallpapers.filter((w) => idSet.has(w.id));
+    return { wallpapers, total: json.total, page: json.page, pageSize: json.pageSize };
+  } catch {
+    return { wallpapers: [], total: 0, page: 1, pageSize };
   }
 }
 

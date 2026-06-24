@@ -43,6 +43,7 @@ export interface UserSummary {
   displayName: string | null;
   photoURL?: string | null;
   roles: UserRoles;
+  isActive?: boolean | null;
   createdAt?: Timestamp | Date | null;
 }
 

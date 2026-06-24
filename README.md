@@ -26,6 +26,14 @@ Built with Next.js 16 App Router, React Server Components, and Firebase.
 
 ## 📋 Recent Changes
 
+### 2026-06-24 — FlexSearch-Powered Search · Cache Invalidation · Bulk Import Concurrency
+
+- **FlexSearch search engine** (`lib/search-index.ts`) — replaces Firestore `where`-based search with a server-side in-memory FlexSearch index. Indexes only `{id, title, description, categoryId, tags}` via `.select()` projection (no full doc download). Paginates 1000 docs per batch. Uses `tokenize: "full"` for true infix substring matching (e.g., `dc` → `WWDC`, `ound` → `background`) plus fuzzy/typo tolerance. Lazy-built on first request via `buildPromise` singleton — never rebuilt per-request.
+- **`GET /api/search`** — returns `{ ids, total, page, pageSize }` only (no full wallpaper data in responses). Client resolves IDs against the already-loaded `allWallpapers` list.
+- **`POST /api/search/reset`** — invalidates the in-memory search index, protected by Firebase ID token verification. Called by the Studio wallpapers page after any mutation (create/edit/delete/batch) and by the bulk import API after completion.
+- **Storage providers reduced** — only `cloudinary` and `r2` in all dropdowns. Auto-detection from URL hostname (`cloudinary.com` → `cloudinary`, `.r2.dev`/`cloudflare` → `r2`). Bulk import defaults to `cloudinary` for unknown URLs.
+- **Bulk import concurrency** — category/tag creation parallelized via `Promise.all` (was sequential). Main import loop uses batches of 20 concurrent writes via `Promise.all` (was sequential 1-by-1). For 1000 wallpapers, estimated ~2.5 min vs ~50 min previously.
+
 ### 2026-06-20 — Pinterest-Grade Masonry + Wallpaper Preview System
 
 - **Custom JS masonry layout engine** (`lib/masonry-engine.ts`) — shortest‑column placement with height tracking, absolute positioning, soft round‑robin balancing, deterministic hash‑based colored placeholders, aspect ratio resolver with fallback chain. Replaces `react-masonry-css`.
@@ -85,6 +93,7 @@ Built with Next.js 16 App Router, React Server Components, and Firebase.
   - [Firestore Indexes](#firestore-indexes)
 - [📚 Library Reference](#-library-reference)
   - [Firebase Initialization](#firebase-initialization)
+  - [FlexSearch Search Index](#flexsearch-search-index)
   - [Resolution Tier System](#resolution-tier-system)
   - [Image URL Resolution](#image-url-resolution)
   - [Wallpaper Store (Client)](#wallpaper-store-client)
@@ -154,7 +163,7 @@ Built with Next.js 16 App Router, React Server Components, and Firebase.
 | **Tag filter** | Filter wallpapers by tag (AND logic — must have ALL selected tags) |
 | **Orientation filter** | Filter by landscape / portrait / square |
 | **Resolution tier filter** | Filter by 8K / 5K / 4K / QHD / HD / SD |
-| **Search** | Real-time search across title, category, and tags |
+| **Search** | FlexSearch-powered with `tokenize: "full"` — true infix substring matching (e.g., `dc` → `WWDC`). Server-side in-memory index returns only IDs; client resolves against full data. |
 | **Sort options** | Newest, Most Downloaded, Most Viewed, Most Liked, Trending, Featured |
 | **Featured collection** | Curated wallpapers selected by moderators |
 | **Trending section** | Algorithmically promoted wallpapers |
@@ -551,6 +560,8 @@ All Admin routes require admin role.
 | Route | File | Description |
 |:------|:-----|:------------|
 | `POST /api/reupload-image` | `app/api/reupload-image/route.ts` | Re-host an external image through Cloudinary. Requires moderator+ auth token. SSRF-protected (blocks private IPs, localhost). Validates MIME type (JPEG/PNG/WebP/AVIF only), file size (max 10MB), download timeout (30s). Returns Cloudinary URL. |
+| `GET /api/search?q=...` | `app/api/search/route.ts` | FlexSearch-powered search. Returns `{ ids, total, page, pageSize }` with only matching wallpaper IDs. Queries < 2 chars return empty. Rate-limited to 30 req/min per IP. |
+| `POST /api/search/reset` | `app/api/search/reset/route.ts` | Invalidate the in-memory FlexSearch index. Requires Firebase ID token in `Authorization: Bearer <token>` header. Called by Studio after mutations. |
 
 ### SEO Routes
 
@@ -757,7 +768,7 @@ All collection path constants are defined in `lib/firestore-types.ts`:
 | `resolution` | `string?` | e.g. `"3840x2160"` |
 | `aspectRatio` | `string?` | e.g. `"16:9"` — computed at write time |
 | `orientation` | `"landscape" \| "portrait" \| "square"?` | Computed at write time |
-| `storageProvider` | `string?` | e.g. `"github"`, `"cloudflare-r2"`, `"cloudinary"` |
+| `storageProvider` | `string?` | `"cloudinary"` or `"r2"` — auto-detected from image URL hostname at write time |
 | `filename` | `string` | File name in `public/wallpapers/` |
 | `imageUrl` | `string?` | External URL (e.g. GitHub raw) |
 | `thumbnailUrl` | `string?` | Optional thumbnail URL |
@@ -914,6 +925,32 @@ The project uses 13+ composite indexes defined in `firestore.indexes.json` to su
 | `lib/firebase.ts` | `app` | Firebase app instance |
 | `lib/firebase-admin.ts` | `getAdminDb()` | Admin SDK Firestore (returns `null` if no credentials) |
 | `lib/firebase-admin.ts` | `getAdminAuth()` | Admin SDK Auth (returns `null` if no credentials) |
+
+### FlexSearch Search Index
+
+**File:** `lib/search-index.ts` (server-only)
+
+In-memory FlexSearch index that replaces Firestore query-based search. Lazy-built on first request, cached for the lifetime of the server instance.
+
+| Export | Description |
+|:-------|:------------|
+| `searchIds(query, limit?)` | Returns matching wallpaper IDs from the in-memory index. Builds the index on first call via `buildPromise` singleton (deduplicates concurrent requests). |
+| `resetIndex()` | Clears the cached index and build promise. Next `searchIds()` call rebuilds from Firestore. |
+
+**Index design:**
+- Only indexes `{id, title, description, categoryId, tags}` — no full wallpaper documents
+- Built via `.select("title", "description", "categoryId", "tags")` to minimize Firestore read costs
+- Paginates 1000 docs per batch to avoid exhausting Firestore query limits
+- Uses `tokenize: "full"` (FlexSearch) for true infix substring matching — `dc` matches `WWDC`, `ound` matches `background`
+- Combines all text fields into a single searchable string per document: `` `${title} ${desc} ${cat} ${tags}` ``
+- Rebuilt on cold server start; invalidated via `POST /api/search/reset` after any mutation
+
+**Usage flow:**
+1. Client pre-loads all wallpapers via `getAllWallpapersForStudio()`
+2. Client sends search query to `GET /api/search?q=...`
+3. Server runs `searchIds(query)` — builds index on first call, reuses thereafter
+4. Server returns `{ ids: ["41", "52"], total: 2, page: 1, pageSize: 20 }`
+5. Client filters the pre-loaded list by matching IDs
 
 ### Resolution Tier System
 
@@ -1389,9 +1426,10 @@ Every edit is recorded in `wallpaperEditHistory/{slug}/edits/{id}` with:
 #### Studio UI (`/studio/wallpapers/bulk-import`)
 
 - Paste one image URL per line
-- Each URL is checked for duplicates (`checkImageUrlExists`)
+- Each URL is checked for duplicates (`checkImageUrlExists` + Firestore query)
 - Dimensions auto-detected via browser `Image` API
-- Processes in batches of 5 (concurrent)
+- Client sends URLs in batches of 5 (concurrent per browser batch)
+- **Server-side (`POST /api/admin/bulk-import`)** processes in batches of 20 concurrent writes via `Promise.all` (was sequential 1-by-1). Categories and tags are also created in parallel. Index auto-invalidated after import via `resetIndex()`.
 - Creates unpublished drafts with auto-detected data
 - Shows result summary (created / duplicates / failed)
 
@@ -1448,7 +1486,7 @@ See [Import Script (CLI)](#-import-script-cli) section.
 
 Scans all wallpapers and recalculates:
 - `aspectRatio` from width/height (using GCD)
-- `storageProvider` from image URL hostname detection
+- `storageProvider` from image URL hostname detection (`cloudinary` / `r2`)
 
 ---
 
@@ -1543,7 +1581,7 @@ All filters are encoded in the URL for shareability:
 - **Orientation** — exact match on `orientation` field
 - **Resolution tier** — computed at render time via `getResolutionTier(width, height)`, filtered client-side
 - **Tags** — AND logic: wallpaper must have ALL selected tags
-- **Search** — case-insensitive match on title, categoryId, and tags
+- **Search** — FlexSearch-powered with `tokenize: "full"`. True infix substring matching (not just prefix). Search hits return IDs from the server-side in-memory index, resolved against the full client-side data.
 - **Sort** — `newest` (uploadDate), `downloads`, `views`, `likes` (descending), `trending` (filter + sort by views), `featured` (filter only)
 
 ### Filter Controls

@@ -41,14 +41,17 @@ export const createOrUpdateUser = async (
   if (!userDoc.exists()) {
     await setDoc(userRef, {
       ...userData,
+      roles: { admin: false, moderator: false },
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastLogin: serverTimestamp(),
+    }, { merge: true });
+  } else {
+    await setDoc(userRef, {
+      updatedAt: serverTimestamp(),
+      lastLogin: serverTimestamp(),
     }, { merge: true });
   }
-
-  await setDoc(userRef, {
-    ...userData,
-    lastLogin: serverTimestamp(),
-  }, { merge: true });
 };
 
 export const getUserProfile = async (

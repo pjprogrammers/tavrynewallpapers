@@ -40,30 +40,26 @@ service cloud.firestore {
       // Anyone can read user profiles (for display)
       allow read: if true;
 
-      // The user can update their own profile, but cannot change
-      // the `roles` field (which mirrors custom claims).
+      // Users can update their own profile — only whitelisted fields allowed
       allow update: if isOwner(userId)
-        && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-            'roles',
-            'email',
-            'uid',
-            'provider',
-            'createdAt',
-            'isActive'
-          ])
-        );
+        && request.resource.data.diff(resource.data)
+            .changedKeys()
+            .hasOnly(['displayName', 'photoURL', 'updatedAt', 'lastLogin']);
 
       // Users can create their own document (during signup)
-      // The `roles` field is blocked to prevent self-escalation.
+      // Only default roles are allowed; uid must match; isActive must be true;
+      // provider must be a known Firebase Auth provider.
       allow create: if isOwner(userId)
-        && !request.resource.data.keys().hasAny(['roles'])
+        && request.resource.data.roles == { admin: false, moderator: false }
+        && request.resource.data.uid == userId
+        && request.resource.data.isActive == true
+        && request.resource.data.provider in ['password', 'google.com', 'github.com', 'facebook.com', 'twitter.com', 'apple.com', 'microsoft.com', 'yahoo.com', 'phone', 'anonymous']
         && isValidString(request.resource.data.displayName, 0, 100)
         && isValidString(request.resource.data.email, 0, 254)
         && isValidUrl(request.resource.data.photoURL);
 
-      // Only admins can delete a user document
-      allow delete: if isAdmin();
+      // User doc deletion is blocked — deactivate via isActive instead
+      allow delete: if false;
 
       /* =========================================================
          ❤️ FAVORITES SUBCOLLECTION (per-user)
@@ -106,8 +102,9 @@ service cloud.firestore {
 
       // Anyone can increment tracking counters (views, impressions,
       // clicks, downloads). Unauthenticated visitors count too.
+      // Each counter can increase by at most 1 per request.
       allow update: if (
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
           'views', 'impressions', 'clicks', 'downloads'
         ])
       );
@@ -115,7 +112,7 @@ service cloud.firestore {
       // Authenticated users can toggle the favorites counter
       // (used by the toggleFavorite transaction).
       allow update: if isAuthenticated()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           'favorites'
         ]);
 
@@ -158,7 +155,10 @@ service cloud.firestore {
         allow read: if true;
         allow create: if isModerator()
           && request.resource.data.wallpaperSlug == wallpaperSlug
-          && request.resource.data.editedBy == request.auth.uid;
+          && request.resource.data.editedBy == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'changes', 'reason', 'wallpaperSlug', 'editedBy', 'editedAt', 'type'
+          ]);
         // History is append-only; no updates / deletes from the client.
         allow update, delete: if isAdmin();
       }
@@ -187,7 +187,10 @@ service cloud.firestore {
     match /{path=**}/edits/{editId} {
       allow read: if true;
       allow create: if isModerator()
-        && request.resource.data.editedBy == request.auth.uid;
+        && request.resource.data.editedBy == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'changes', 'reason', 'wallpaperSlug', 'editedBy', 'editedAt', 'type'
+        ]);
       allow update, delete: if isAdmin();
     }
 

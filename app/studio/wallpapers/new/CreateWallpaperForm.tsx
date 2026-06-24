@@ -27,11 +27,8 @@ import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
 const STORAGE_PROVIDERS = [
   { value: "", label: "Auto-detect" },
-  { value: "github", label: "GitHub" },
-  { value: "cloudflare-r2", label: "Cloudflare R2" },
   { value: "cloudinary", label: "Cloudinary" },
-  { value: "firebase-storage", label: "Firebase Storage" },
-  { value: "other", label: "Other" },
+  { value: "r2", label: "Cloudflare R2" },
 ] as const;
 
 interface FormState {
@@ -81,13 +78,12 @@ function detectImageDimensions(url: string): Promise<{ width: number; height: nu
 function detectStorageProvider(url: string): string {
   try {
     const u = new URL(url);
-    if (u.hostname.includes("raw.githubusercontent.com") || u.hostname === "github.com") return "github";
-    if (u.hostname.includes("r2.cloudflarestorage.com") || u.hostname.includes(".r2.dev")) return "cloudflare-r2";
-    if (u.hostname.includes("cloudinary.com") || u.hostname.includes("res.cloudinary.com")) return "cloudinary";
-    if (u.hostname.includes("firebasestorage.googleapis.com")) return "firebase-storage";
-    return "other";
+    const host = u.hostname;
+    if (host.includes("cloudinary.com")) return "cloudinary";
+    if (host.includes(".r2.dev") || host.includes("r2.cloudflarestorage.com") || host.includes("cloudflare")) return "r2";
+    return "";
   } catch {
-    return "other";
+    return "";
   }
 }
 

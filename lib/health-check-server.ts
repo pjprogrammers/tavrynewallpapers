@@ -42,11 +42,22 @@ export async function getHealthReport(): Promise<HealthReport> {
     };
   }
 
-  const [wallpapersSnap, categoriesSnap, tagsSnap] = await Promise.all([
-    admin.collection(COLLECTIONS.WALLPAPERS).get(),
-    admin.collection(COLLECTIONS.CATEGORIES).get(),
-    admin.collection(COLLECTIONS.TAGS).get(),
-  ]);
+  let wallpapersSnap, categoriesSnap, tagsSnap;
+  try {
+    [wallpapersSnap, categoriesSnap, tagsSnap] = await Promise.all([
+      admin.collection(COLLECTIONS.WALLPAPERS).get(),
+      admin.collection(COLLECTIONS.CATEGORIES).get(),
+      admin.collection(COLLECTIONS.TAGS).get(),
+    ]);
+  } catch {
+    return {
+      counts: { published: 0, drafts: 0, deleted: 0, featured: 0, trending: 0, total: 0 },
+      categoryHealth: { total: 0, orphaned: [], missing: [], usage: [] },
+      tagHealth: { total: 0, orphaned: [], missing: [], usage: [] },
+      duplicates: { titles: [], imageUrls: [] },
+      wallpapers: [],
+    };
+  }
 
   const allCategoryIds = new Set<string>();
   const categoryNames = new Map<string, string>();

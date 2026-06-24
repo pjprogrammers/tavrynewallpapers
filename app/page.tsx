@@ -1,9 +1,12 @@
 import { Metadata } from 'next';
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import HeroSection from "./components/HeroSection";
+import HeroContentWrapper from "./components/HeroContentWrapper";
 import WallpaperGridWithStats from "./components/WallpaperGridWithStats";
 import FeaturedGridWithStats from "./components/FeaturedGridWithStats";
 import SearchBar from "./components/SearchBar";
+import SectionReveal from "./components/SectionReveal";
 import { categories } from "./lib/wallpapers";
 import Link from "next/link";
 import { ChevronRight, Download, Heart, TrendingUp } from "lucide-react";
@@ -150,20 +153,21 @@ export default async function Home() {
         <div className="hero-background">
           <div className="hero-overlay"></div>
           <div className="hero-gradient"></div>
+          <HeroSection />
         </div>
         <div className="container">
-          <div className="hero-content">
+          <HeroContentWrapper>
             <h1 id="hero-title" className="hero-title">
-              {SITE_NAME} — Find Your Perfect <span className="hero-highlight animate-pulse-subtle">Wallpaper</span>
+              {SITE_NAME} - Find Your Perfect <span className="hero-highlight animate-pulse-subtle">Wallpaper</span>
             </h1>
             <p className="hero-subtitle">
-              Discover and download {totalCount}+ stunning high-resolution 4K, HD, and 8K wallpapers for desktop and mobile — anime, gaming, cyberpunk, nature, and more.
+              Discover and download {totalCount}+ stunning high-resolution 4K, HD, and 8K wallpapers for desktop and mobile - anime, gaming, cyberpunk, nature, and more.
             </p>
-            <div className="hero-search animate-fade-in">
+            <div className="hero-search">
               <SearchBar />
             </div>
 
-            <div className="hero-categories animate-fade-in">
+            <div className="hero-categories">
               <h2 className="hero-categories-title">Trending Categories</h2>
               <div className="hero-category-pills">
                 {categories.slice(0, 7).map((category, index) => (
@@ -182,117 +186,127 @@ export default async function Home() {
                 </Link>
               </div>
             </div>
-          </div>
+          </HeroContentWrapper>
         </div>
       </section>
 
       {/* Featured Wallpapers Section */}
       <section className="section" aria-labelledby="featured-section-title">
-        <div className="container">
-          <div className="section-header">
-            <div className="section-title-wrapper">
-              <h2 id="featured-section-title" className="section-title">Featured Wallpapers</h2>
-              <p className="section-description">Our curated selection of stunning high-quality wallpapers</p>
+        <SectionReveal>
+          <div className="container">
+            <div className="section-header">
+              <div className="section-title-wrapper">
+                <h2 id="featured-section-title" className="section-title">Featured Wallpapers</h2>
+                <p className="section-description">Our curated selection of stunning high-quality wallpapers</p>
+              </div>
+              <Link href="/featured" className="section-link">
+                View all featured
+                <ChevronRight size={16} />
+              </Link>
             </div>
-            <Link href="/featured" className="section-link">
-              View all featured
-              <ChevronRight size={16} />
-            </Link>
+            <FeaturedGridWithStats wallpapers={featuredWallpapers} />
           </div>
-          <FeaturedGridWithStats wallpapers={featuredWallpapers} />
-        </div>
+        </SectionReveal>
       </section>
 
       {/* Categories Section */}
       <section className="section section-alt" aria-labelledby="categories-section-title">
-        <div className="container">
-          <div className="section-header">
-            <div className="section-title-wrapper">
-              <h2 id="categories-section-title" className="section-title">Browse Categories</h2>
-              <p className="section-description">Explore wallpapers by your favorite categories</p>
-            </div>
-            <Link href="/categories/all" className="section-link">
-              View all categories
-              <ChevronRight size={16} />
-            </Link>
-          </div>
-          <div className="categories-grid" role="list">
-            {categories.slice(0, 8).map((category, index) => (
-              <Link
-                key={category.id}
-                href={`/categories/${category.id}`}
-                className="category-card animate-fade-in animate-glow"
-                style={{ animationDelay: `${index * 0.1}s` }}
-                role="listitem"
-              >
-                <div className="category-content">
-                  <h3 className="category-title">{category.name}</h3>
-                  {category.count && (
-                    <span className="category-count">{category.count} wallpapers</span>
-                  )}
-                </div>
+        <SectionReveal>
+          <div className="container">
+            <div className="section-header">
+              <div className="section-title-wrapper">
+                <h2 id="categories-section-title" className="section-title">Browse Categories</h2>
+                <p className="section-description">Explore wallpapers by your favorite categories</p>
+              </div>
+              <Link href="/categories/all" className="section-link">
+                View all categories
+                <ChevronRight size={16} />
               </Link>
-            ))}
+            </div>
+            <div className="categories-grid" role="list">
+              {categories.slice(0, 8).map((category, index) => (
+                <Link
+                  key={category.id}
+                  href={`/categories/${category.id}`}
+                  className="category-card animate-fade-in animate-glow"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                  role="listitem"
+                >
+                  <div className="category-content">
+                    <h3 className="category-title">{category.name}</h3>
+                    {category.count && (
+                      <span className="category-count">{category.count} wallpapers</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        </SectionReveal>
       </section>
 
       {/* All Wallpapers Section */}
       <section className="section" aria-labelledby="all-section-title">
-        <div className="container">
-          <div className="section-header">
-            <div className="section-title-wrapper">
-              <h2 id="all-section-title" className="section-title">All Wallpapers</h2>
-              <p className="section-description">Browse our complete collection of wallpapers</p>
+        <SectionReveal>
+          <div className="container">
+            <div className="section-header">
+              <div className="section-title-wrapper">
+                <h2 id="all-section-title" className="section-title">All Wallpapers</h2>
+                <p className="section-description">Browse our complete collection of wallpapers</p>
+              </div>
+              <Link href="/all" className="section-link">
+                View all wallpapers
+                <ChevronRight size={16} />
+              </Link>
             </div>
-            <Link href="/all" className="section-link">
-              View all wallpapers
-              <ChevronRight size={16} />
-            </Link>
+            <WallpaperGridWithStats wallpapers={allWallpapers} />
           </div>
-          <WallpaperGridWithStats wallpapers={allWallpapers} />
-        </div>
+        </SectionReveal>
       </section>
 
       {/* Trending Section */}
       <section className="section section-alt" aria-labelledby="trending-section-title">
-        <div className="container">
-          <div className="section-header">
-            <div className="section-title-wrapper">
-              <div className="section-badge">
-                <TrendingUp size={14} />
-                Popular Now
+        <SectionReveal>
+          <div className="container">
+            <div className="section-header">
+              <div className="section-title-wrapper">
+                <div className="section-badge">
+                  <TrendingUp size={14} />
+                  Popular Now
+                </div>
+                <h2 id="trending-section-title" className="section-title">Trending Wallpapers</h2>
+                <p className="section-description">Most downloaded wallpapers this week</p>
               </div>
-              <h2 id="trending-section-title" className="section-title">Trending Wallpapers</h2>
-              <p className="section-description">Most downloaded wallpapers this week</p>
+              <Link href="/popular" className="section-link">
+                View all trending
+                <ChevronRight size={16} />
+              </Link>
             </div>
-            <Link href="/popular" className="section-link">
-              View all trending
-              <ChevronRight size={16} />
-            </Link>
+            <WallpaperGridWithStats wallpapers={trendingWallpapers} />
           </div>
-          <WallpaperGridWithStats wallpapers={trendingWallpapers} />
-        </div>
+        </SectionReveal>
       </section>
 
       {/* CTA Section */}
       <section className="cta-section" aria-labelledby="cta-title">
-        <div className="container">
-          <div className="cta-content animate-fade-in">
-            <h2 id="cta-title" className="cta-title">Ready to customize your screens?</h2>
-            <p className="cta-description">
-              Explore the {SITE_NAME} collection of high-quality wallpapers and find the perfect one for your device.
-            </p>
-            <div className="cta-actions">
-              <Link href="/categories/all" className="cta-button primary animate-pulse-subtle">
-                Browse Categories
-              </Link>
-              <Link href="/all" className="cta-button secondary">
-                All Wallpapers
-              </Link>
+        <SectionReveal>
+          <div className="container">
+            <div className="cta-content animate-fade-in">
+              <h2 id="cta-title" className="cta-title">Ready to customize your screens?</h2>
+              <p className="cta-description">
+                Explore the {SITE_NAME} collection of high-quality wallpapers and find the perfect one for your device.
+              </p>
+              <div className="cta-actions">
+                <Link href="/categories/all" className="cta-button primary animate-pulse-subtle">
+                  Browse Categories
+                </Link>
+                <Link href="/all" className="cta-button secondary">
+                  All Wallpapers
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
+        </SectionReveal>
       </section>
       </main>
 

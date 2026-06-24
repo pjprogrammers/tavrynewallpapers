@@ -29,11 +29,8 @@ function detectImageDimensions(url: string): Promise<{ width: number; height: nu
 
 export const STORAGE_PROVIDERS = [
   { value: "", label: "Auto-detect" },
-  { value: "github", label: "GitHub" },
-  { value: "cloudflare-r2", label: "Cloudflare R2" },
   { value: "cloudinary", label: "Cloudinary" },
-  { value: "firebase-storage", label: "Firebase Storage" },
-  { value: "other", label: "Other" },
+  { value: "r2", label: "Cloudflare R2" },
 ] as const;
 
 export interface FormState {
