@@ -211,6 +211,10 @@ const Header = () => {
                 <TrendingUp size={16} />
                 <span>Popular</span>
               </Link>
+              <Link href="/trending" className="nav-dropdown-item">
+                <TrendingUp size={16} />
+                <span>Trending</span>
+              </Link>
               <Link href="/recent" className="nav-dropdown-item">
                 <Clock size={16} />
                 <span>Recent</span>
@@ -470,6 +474,17 @@ const Header = () => {
             >
               <TrendingUp size={20} className="mobile-nav-icon" />
               <span>Popular</span>
+            </Link>
+
+            <Link
+              href="/trending"
+              className={`mobile-nav-link ${
+                isActive("/trending") ? "active" : ""
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <TrendingUp size={20} className="mobile-nav-icon" />
+              <span>Trending</span>
             </Link>
 
             <Link

@@ -12,7 +12,7 @@ import {
   type Wallpaper,
 } from "../lib/wallpapers";
 import {
-  getPopularWallpapersServer,
+  getTrendingWallpapersServer,
   type TimeRange,
 } from "@/lib/wallpaper-store-server";
 import {
@@ -39,56 +39,55 @@ export async function generateMetadata({
   const time = (typeof sp?.time === "string" ? sp.time : "all") as TimeRange;
   const suffix = time !== "all" ? ` (${time})` : "";
   return {
-    title: `Popular Wallpapers${suffix} | ${SITE_NAME}`,
-    description: `The most-liked wallpapers on ${SITE_NAME}. Discover what the community loves most — 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.`,
+    title: `Trending Wallpapers${suffix} | ${SITE_NAME}`,
+    description: `The most-viewed wallpapers on ${SITE_NAME} right now. See what everyone is downloading — 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.`,
     keywords: [
-      "popular wallpapers",
-      "most liked",
-      "top wallpapers",
       "trending wallpapers",
-      "best wallpapers",
+      "most viewed",
+      "popular wallpapers",
+      "top wallpapers",
       SITE_NAME,
     ],
     alternates: {
-      canonical: `${SITE_URL}/popular`,
+      canonical: `${SITE_URL}/trending`,
       languages: {
-        en: `${SITE_URL}/popular`,
-        'x-default': `${SITE_URL}/popular`,
+        en: `${SITE_URL}/trending`,
+        'x-default': `${SITE_URL}/trending`,
       },
     },
     openGraph: {
       type: "website",
       locale: "en_US",
-      url: `${SITE_URL}/popular`,
+      url: `${SITE_URL}/trending`,
       siteName: SITE_NAME,
-      title: `Popular Wallpapers | ${SITE_NAME}`,
-      description: `The most-liked wallpapers on ${SITE_NAME}.`,
+      title: `Trending Wallpapers | ${SITE_NAME}`,
+      description: `The most-viewed wallpapers on ${SITE_NAME} right now.`,
       images: [{ url: `${SITE_URL}/og-image.png`, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: `Popular Wallpapers | ${SITE_NAME}`,
-      description: `The most-liked wallpapers on ${SITE_NAME}.`,
+      title: `Trending Wallpapers | ${SITE_NAME}`,
+      description: `The most-viewed wallpapers on ${SITE_NAME} right now.`,
       images: [`${SITE_URL}/og-image.png`],
     },
   };
 }
 
 /**
- * Most-liked wallpapers — sorted by favorites (likes) descending.
+ * Most-viewed wallpapers — sorted by views descending.
  */
-async function loadPopular(timeRange: TimeRange): Promise<Wallpaper[]> {
-  const fromFs = await getPopularWallpapersServer(60, timeRange);
+async function loadTrending(timeRange: TimeRange): Promise<Wallpaper[]> {
+  const fromFs = await getTrendingWallpapersServer(60, timeRange);
   if (fromFs.length > 0) {
     return fromFs as unknown as Wallpaper[];
   }
   return getStaticAll()
     .slice()
-    .sort((a, b) => (b.favorites ?? 0) - (a.favorites ?? 0))
+    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
     .slice(0, 60);
 }
 
-export default async function PopularPage({
+export default async function TrendingPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -98,15 +97,15 @@ export default async function PopularPage({
   const time = typeof rawTime === "string" && VALID_TIMES.has(rawTime as TimeRange)
     ? (rawTime as TimeRange)
     : "all";
-  const popular = await loadPopular(time);
+  const trending = await loadTrending(time);
 
   const collectionPage = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: `Popular Wallpapers | ${SITE_NAME}`,
-    description: `The most-liked wallpapers on ${SITE_NAME}.`,
-    url: `${SITE_URL}/popular`,
-    numberOfItems: popular.length,
+    name: `Trending Wallpapers | ${SITE_NAME}`,
+    description: `The most-viewed wallpapers on ${SITE_NAME} right now.`,
+    url: `${SITE_URL}/trending`,
+    numberOfItems: trending.length,
     isPartOf: { "@id": `${SITE_URL}/#website` },
     publisher: { "@id": `${SITE_URL}/#organization` },
     inLanguage: "en",
@@ -117,17 +116,17 @@ export default async function PopularPage({
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Popular", item: `${SITE_URL}/popular` },
+      { "@type": "ListItem", position: 2, name: "Trending", item: `${SITE_URL}/trending` },
     ],
   };
 
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Most Liked Wallpapers",
-    url: `${SITE_URL}/popular`,
-    numberOfItems: popular.length,
-    itemListElement: popular.slice(0, 20).map((w, idx) => ({
+    name: "Trending Wallpapers",
+    url: `${SITE_URL}/trending`,
+    numberOfItems: trending.length,
+    itemListElement: trending.slice(0, 20).map((w, idx) => ({
       "@type": "ListItem",
       position: idx + 1,
       name: w.title,
@@ -159,9 +158,9 @@ export default async function PopularPage({
               </Link>
             </nav>
 
-            <h1 className="text-2xl font-bold mb-2">Most Liked Wallpapers</h1>
+            <h1 className="text-2xl font-bold mb-2">Trending Wallpapers</h1>
             <p className="text-muted-foreground mb-6">
-              The most-liked wallpapers across {SITE_NAME}, ranked
+              The most-viewed wallpapers across {SITE_NAME} right now. Ranked
               live from Firestore.
             </p>
 
@@ -173,10 +172,10 @@ export default async function PopularPage({
               <CategoryList categories={categories} />
             </section>
 
-            <TimeRangeTabs basePath="/popular" current={time} />
+            <TimeRangeTabs basePath="/trending" current={time} />
 
-            <section aria-labelledby="most-liked-title">
-              <WallpaperGrid wallpapers={popular} />
+            <section aria-labelledby="trending-title">
+              <WallpaperGrid wallpapers={trending} />
             </section>
           </div>
         </main>

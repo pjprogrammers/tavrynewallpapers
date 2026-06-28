@@ -215,6 +215,12 @@ async function buildEntries(): Promise<SitemapEntry[]> {
     priority: 0.8,
   });
   entries.push({
+    loc: `${SITE_URL}/trending`,
+    lastmod: LISTING_LASTMOD,
+    changefreq: "daily",
+    priority: 0.8,
+  });
+  entries.push({
     loc: `${SITE_URL}/edits`,
     lastmod: today,
     changefreq: "hourly",

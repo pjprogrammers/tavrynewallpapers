@@ -161,7 +161,8 @@ service cloud.firestore {
           && request.resource.data.wallpaperSlug == wallpaperSlug
           && request.resource.data.editedBy == request.auth.uid
           && request.resource.data.keys().hasOnly([
-            'changes', 'reason', 'wallpaperSlug', 'editedBy', 'editedAt', 'type'
+            'changes', 'reason', 'wallpaperSlug', 'editedBy', 'editedByName',
+            'editedByEmail', 'editedAt', 'type', 'after'
           ]);
         // History is append-only; no updates / deletes from the client.
         allow update, delete: if isAdmin();
@@ -193,7 +194,8 @@ service cloud.firestore {
       allow create: if isModerator()
         && request.resource.data.editedBy == request.auth.uid
         && request.resource.data.keys().hasOnly([
-          'changes', 'reason', 'wallpaperSlug', 'editedBy', 'editedAt', 'type'
+          'changes', 'reason', 'wallpaperSlug', 'editedBy', 'editedByName',
+          'editedByEmail', 'editedAt', 'type', 'after'
         ]);
       allow update, delete: if isAdmin();
     }

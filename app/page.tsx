@@ -297,12 +297,12 @@ export default async function Home() {
               <div className="section-title-wrapper">
                 <div className="section-badge">
                   <TrendingUp size={14} />
-                  Popular Now
+                  Trending Now
                 </div>
                 <h2 id="trending-section-title" className="section-title">Trending Wallpapers</h2>
-                <p className="section-description">Most downloaded wallpapers this week</p>
+                <p className="section-description">Most viewed wallpapers</p>
               </div>
-              <Link href="/popular" className="section-link">
+              <Link href="/trending" className="section-link">
                 View all trending
                 <ChevronRight size={16} />
               </Link>

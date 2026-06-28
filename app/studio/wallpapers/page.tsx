@@ -158,6 +158,8 @@ export default function WallpapersListing() {
         {btn("Unpublish", { published: false }, "bg-zinc-700 hover:bg-zinc-600 text-zinc-200")}
         {btn("Feature", { featured: true }, "bg-amber-600 hover:bg-amber-500 text-white")}
         {btn("Unfeature", { featured: false }, "bg-zinc-700 hover:bg-zinc-600 text-zinc-200")}
+        {btn("Trending", { trending: true }, "bg-sky-600 hover:bg-sky-500 text-white")}
+        {btn("Untrending", { trending: false }, "bg-zinc-700 hover:bg-zinc-600 text-zinc-200")}
         {canDelete && btn("Delete", { deleted: true }, "bg-red-700 hover:bg-red-600 text-white")}
         {canDelete && btn("Restore", { deleted: false }, "bg-blue-700 hover:bg-blue-600 text-white")}
         <button onClick={() => setSelected(new Set())} disabled={batchBusy}

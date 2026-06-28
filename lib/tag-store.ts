@@ -81,16 +81,21 @@ export async function deleteTag(id: string): Promise<void> {
   await deleteDoc(ref);
 }
 
-export async function getTagWallpaperCount(id: string): Promise<number> {
+export async function getTagWallpaperCount(id: string, name?: string): Promise<number> {
   try {
     const db = getDB();
-    const q = query(
-      collection(db, COLLECTIONS.WALLPAPERS),
-      where("tags", "array-contains", id),
-      where("deleted", "==", false)
+    const queries = [id, name].filter((v): v is string => !!v && v !== id);
+    const results = await Promise.all(
+      [id, ...queries].map((val) => {
+        const q = query(
+          collection(db, COLLECTIONS.WALLPAPERS),
+          where("tags", "array-contains", val),
+          where("deleted", "==", false)
+        );
+        return getCountFromServer(q).then((s) => s.data().count);
+      })
     );
-    const snap = await getCountFromServer(q);
-    return snap.data().count;
+    return results.reduce((a, b) => a + b, 0);
   } catch {
     return 0;
   }
@@ -100,11 +105,43 @@ export async function getAllTagCounts(): Promise<Record<string, number>> {
   try {
     const tags = await listTags();
     const entries = await Promise.all(
-      tags.map(async (tag) => [tag.id, await getTagWallpaperCount(tag.id)] as const)
+      tags.map(async (tag) => [tag.id, await getTagWallpaperCount(tag.id, tag.name)] as const)
     );
     return Object.fromEntries(entries);
   } catch {
     return {};
+  }
+}
+
+async function paginateTagUpdate(
+  db: ReturnType<typeof getDB>,
+  searchValues: string[],
+  updateFn: (tags: string[]) => string[]
+): Promise<void> {
+  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
+  const BATCH_LIMIT = 500;
+  const processed = new Set<string>();
+
+  for (const val of searchValues) {
+    let lastDoc: any = null;
+    while (true) {
+      const q = lastDoc
+        ? query(wallpapersRef, where("tags", "array-contains", val), orderBy("__name__"), startAfter(lastDoc), limit(BATCH_LIMIT))
+        : query(wallpapersRef, where("tags", "array-contains", val), orderBy("__name__"), limit(BATCH_LIMIT));
+      const snap = await getDocs(q);
+      if (snap.docs.length === 0) break;
+      const batch = writeBatch(db);
+      for (const d of snap.docs) {
+        if (processed.has(d.id)) continue;
+        processed.add(d.id);
+        const data = d.data() as Record<string, unknown>;
+        const tags = (data.tags as string[]) ?? [];
+        batch.update(d.ref, { tags: updateFn(tags), updatedAt: serverTimestamp() });
+      }
+      await batch.commit();
+      if (snap.docs.length < BATCH_LIMIT) break;
+      lastDoc = snap.docs[snap.docs.length - 1];
+    }
   }
 }
 
@@ -128,39 +165,25 @@ export async function renameTag(
     throw new Error(`Tag "${oldId}" does not exist.`);
   }
 
+  const oldName = (oldSnap.data()?.name as string | undefined) ?? oldId;
+
   // Create new tag doc
   await setDoc(
     newId !== oldId ? doc(db, COLLECTIONS.TAGS, newId) : oldRef,
     {
-      name: newName ?? oldSnap.data()?.name ?? newId,
+      name: newName ?? oldName,
       createdAt: oldSnap.data()?.createdAt ?? serverTimestamp(),
       updatedAt: serverTimestamp(),
     },
     { merge: true }
   );
 
-  // Paginate through all wallpapers with the old tag
+  // Paginate through all wallpapers with the old tag ID or name
   if (newId !== oldId) {
-    const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
-    const BATCH_LIMIT = 500;
-    let lastDoc: any = null;
-    while (true) {
-      const q = lastDoc
-        ? query(wallpapersRef, where("tags", "array-contains", oldId), orderBy("__name__"), startAfter(lastDoc), limit(BATCH_LIMIT))
-        : query(wallpapersRef, where("tags", "array-contains", oldId), orderBy("__name__"), limit(BATCH_LIMIT));
-      const snap = await getDocs(q);
-      if (snap.docs.length === 0) break;
-      const batch = writeBatch(db);
-      snap.docs.forEach((d) => {
-        const data = d.data() as Record<string, unknown>;
-        const tags = (data.tags as string[]) ?? [];
-        const updated = tags.map((t) => (t === oldId ? newId : t));
-        batch.update(d.ref, { tags: updated, updatedAt: serverTimestamp() });
-      });
-      await batch.commit();
-      if (snap.docs.length < BATCH_LIMIT) break;
-      lastDoc = snap.docs[snap.docs.length - 1];
-    }
+    const searchVals = oldName !== oldId ? [oldId, oldName] : [oldId];
+    await paginateTagUpdate(db, searchVals, (tags) =>
+      tags.map((t) => (t === oldId || t === oldName ? newId : t))
+    );
     await deleteDoc(oldRef);
   }
 }
@@ -180,31 +203,16 @@ export async function mergeTags(
   const sourceSnap = await getDoc(sourceRef);
   if (!sourceSnap.exists()) return;
 
-  // Paginate through all wallpapers with the source tag
-  const wallpapersRef = collection(db, COLLECTIONS.WALLPAPERS);
-  const BATCH_LIMIT = 500;
-  let lastDoc: any = null;
-  while (true) {
-    const q = lastDoc
-      ? query(wallpapersRef, where("tags", "array-contains", sourceId), orderBy("__name__"), startAfter(lastDoc), limit(BATCH_LIMIT))
-      : query(wallpapersRef, where("tags", "array-contains", sourceId), orderBy("__name__"), limit(BATCH_LIMIT));
-    const snap = await getDocs(q);
-    if (snap.docs.length === 0) break;
-    const batch = writeBatch(db);
-    snap.docs.forEach((d) => {
-      const data = d.data() as Record<string, unknown>;
-      const tags = (data.tags as string[]) ?? [];
-      const updated = tags
-        .filter((t) => t !== sourceId)
-        .concat(targetId);
-      batch.update(d.ref, {
-        tags: [...new Set(updated)],
-        updatedAt: serverTimestamp(),
-      });
-    });
-    await batch.commit();
-    if (snap.docs.length < BATCH_LIMIT) break;
-    lastDoc = snap.docs[snap.docs.length - 1];
-  }
+  const sourceName = (sourceSnap.data()?.name as string | undefined) ?? sourceId;
+
+  // Paginate through all wallpapers with the source tag ID or name
+  const searchVals = sourceName !== sourceId ? [sourceId, sourceName] : [sourceId];
+  await paginateTagUpdate(db, searchVals, (tags) => {
+    const updated = tags
+      .filter((t) => t !== sourceId && t !== sourceName)
+      .concat(targetId);
+    return [...new Set(updated)];
+  });
+
   await deleteDoc(sourceRef);
 }

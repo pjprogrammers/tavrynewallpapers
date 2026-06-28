@@ -34,7 +34,7 @@ export async function revalidateWallpaperPaths(
   // The sitemap (regenerates next request)
   revalidatePath("/sitemap.xml");
   // Always revalidate the home & global listings (they may include
-  // featured/recent tiles). Cheap to revalidate.
+  // featured/trending/recent tiles). Cheap to revalidate.
   revalidatePath("/");
   revalidatePath("/all");
   revalidatePath("/recent");
@@ -49,11 +49,10 @@ export async function revalidateWallpaperPaths(
   if (affects?.tags) {
     revalidatePath("/tag/[tagId]", "page");
   }
-  // featured/trending toggle revalidates /featured and the home (already done)
   if (affects?.featured) {
     revalidatePath("/featured");
   }
   if (affects?.trending) {
-    revalidatePath("/");
+    revalidatePath("/trending");
   }
 }

@@ -15,6 +15,17 @@ import { COLLECTIONS, SUB_COLLECTIONS } from "./firestore-types";
 import type { WallpaperMetadata, WallpaperEdit } from "./firestore-types";
 import { normalizeWallpaper } from "./wallpaper-utils";
 import { cachedRead } from "./client-cache";
+import type { TimeRange } from "./wallpaper-store-server";
+
+export function timeRangeCutoff(range: TimeRange): Date | null {
+  if (range === "all") return null;
+  const ms: Record<Exclude<TimeRange, "all">, number> = {
+    "24h": 86_400_000,
+    week: 604_800_000,
+    month: 2_592_000_000,
+  };
+  return new Date(Date.now() - ms[range]);
+}
 
 export async function getAllWallpapersFromFirestore(
   pageSize: number = 80
@@ -76,15 +87,20 @@ export async function getFeaturedWallpapersFromFirestore(
 }
 
 export async function getTrendingWallpapersFromFirestore(
-  pageSize: number = 200
+  pageSize: number = 200,
+  timeRange: TimeRange = "all"
 ): Promise<WallpaperMetadata[]> {
-  return cachedRead(`wallpapers:trending:${pageSize}`, async () => {
+  const cutoff = timeRangeCutoff(timeRange);
+  const key = `wallpapers:trending:${pageSize}:${timeRange}`;
+  return cachedRead(key, async () => {
     try {
       const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
       const q = query(
         ref,
-        where("trending", "==", true),
-        orderBy("updatedAt", "desc"),
+        cutoff
+          ? where("createdAt", ">=", cutoff)
+          : where("visible", "!=", false),
+        orderBy("views", "desc"),
         limitFn(pageSize)
       );
       const snap = await getDocs(q);
@@ -173,15 +189,20 @@ export async function getRelatedWallpapersFromFirestore(
 }
 
 export async function getPopularWallpapersFromFirestore(
-  pageSize: number = 24
+  pageSize: number = 24,
+  timeRange: TimeRange = "all"
 ): Promise<WallpaperMetadata[]> {
-  return cachedRead(`wallpapers:popular:${pageSize}`, async () => {
+  const cutoff = timeRangeCutoff(timeRange);
+  const key = `wallpapers:popular:${pageSize}:${timeRange}`;
+  return cachedRead(key, async () => {
     try {
       const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
       const q = query(
         ref,
-        where("visible", "!=", false),
-        orderBy("downloads", "desc"),
+        cutoff
+          ? where("createdAt", ">=", cutoff)
+          : where("visible", "!=", false),
+        orderBy("favorites", "desc"),
         limitFn(pageSize)
       );
       const snap = await getDocs(q);

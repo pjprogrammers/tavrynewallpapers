@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: TagPageProps): Promise<Metada
     };
   }
 
-  const fromFs = await getWallpapersByTagServer(tagId, 500);
+  const fromFs = await getWallpapersByTagServer(tagId, 500, tag.name);
   const wallpapers = fromFs.length > 0 ? fromFs : getStaticByTag(tagId);
   const title = `${tag.name} Wallpapers — ${SITE_NAME}`;
   const description = `Browse ${wallpapers.length} wallpapers tagged with "${tag.name}". Download high-quality ${tag.name} wallpapers in 4K, HD, and 8K resolutions for desktop and mobile.`;
@@ -102,7 +102,8 @@ export async function generateMetadata({ params }: TagPageProps): Promise<Metada
 }
 
 async function loadTagWallpapers(tagId: string): Promise<Wallpaper[]> {
-  const fromFs = await getWallpapersByTagServer(tagId, 500);
+  const tag = await getTagByIdServer(tagId);
+  const fromFs = await getWallpapersByTagServer(tagId, 500, tag?.name);
   if (fromFs.length > 0) {
     return fromFs as unknown as Wallpaper[];
   }
