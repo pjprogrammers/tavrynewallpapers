@@ -3,7 +3,34 @@ import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { formatAspectRatio, deriveOrientation } from "@/lib/wallpaper-utils";
 import { withResolutionTag } from "@/lib/resolution-tiers";
+import { getNextWallpaperIdAdmin, initWallpaperCounterIfMissing } from "@/lib/wallpaper-id";
 import { resetIndex } from "@/lib/search-index";
+
+const ADMIN_RATE_LIMIT = 20;
+const ADMIN_RATE_WINDOW = 60_000;
+const adminRateMap = new Map<string, { count: number; resetAt: number }>();
+
+const PRIVATE_PATTERNS = [
+  /^127\.\d+\.\d+\.\d+$/,
+  /^10\.\d+\.\d+\.\d+$/,
+  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+  /^192\.168\.\d+\.\d+$/,
+  /^0\.0\.0\.0$/,
+  /^localhost$/i,
+  /^::$/,
+  /^::1$/,
+];
+
+function isBlockedUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return true;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return true;
+  return PRIVATE_PATTERNS.some((p) => p.test(parsed.hostname));
+}
 
 interface BulkItemInput {
   imageUrl: string;
@@ -13,6 +40,7 @@ interface BulkItemInput {
   tags: string[];
   width: number;
   height: number;
+  thumbnailUrl?: string;
 }
 
 interface BulkImportResult {
@@ -38,10 +66,9 @@ function detectStorageProvider(url: string): string {
   try {
     const host = new URL(url).hostname;
     if (host.includes("cloudinary.com")) return "cloudinary";
-    if (host.includes(".r2.dev") || host.includes("r2.cloudflarestorage.com") || host.includes("cloudflare")) return "r2";
-    return "cloudinary";
+    return "local";
   } catch {
-    return "cloudinary";
+    return "local";
   }
 }
 
@@ -69,7 +96,25 @@ export async function POST(request: NextRequest) {
     }
 
     const adminDb = getAdminDb()!;
+    await initWallpaperCounterIfMissing(adminDb);
     const uid = decoded.uid;
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? request.headers.get("x-real-ip")
+      ?? "unknown";
+    const rateNow = Date.now();
+    const entry = adminRateMap.get(ip);
+    if (entry && rateNow < entry.resetAt) {
+      if (entry.count >= ADMIN_RATE_LIMIT) {
+        return NextResponse.json(
+          { error: "Too many requests" },
+          { status: 429, headers: { "Retry-After": "60" } }
+        );
+      }
+      entry.count++;
+    } else {
+      adminRateMap.set(ip, { count: 1, resetAt: rateNow + ADMIN_RATE_WINDOW });
+    }
 
     let body: { items: BulkItemInput[] };
     try {
@@ -83,80 +128,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No items provided." }, { status: 400 });
     }
 
-    const ts = FieldValue.serverTimestamp() ?? new Date();
-
-    const createdCategories: string[] = [];
-    const uniqueCats = [...new Set(items.map((i) => i.categoryId).filter(Boolean))];
-    const catResults = await Promise.all(
-      uniqueCats.map(async (catId) => {
-        const snap = await adminDb.collection("categories").doc(catId).get();
-        if (!snap.exists) {
-          await adminDb.collection("categories").doc(catId).set({
-            name: catId.charAt(0).toUpperCase() + catId.slice(1),
-            description: "",
-            createdAt: ts,
-            updatedAt: ts,
-          });
-          return catId;
-        }
-        return null;
-      })
-    );
-    for (const c of catResults) { if (c) createdCategories.push(c); }
-
-    const createdTags: string[] = [];
-    const allTags = [...new Set(items.flatMap((i) => i.tags))].filter(Boolean);
-    const tagResults = await Promise.all(
-      allTags.map(async (tagName) => {
-        const tagId = tagName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-        if (!tagId) return null;
-        const snap = await adminDb.collection("tags").doc(tagId).get();
-        if (!snap.exists) {
-          await adminDb.collection("tags").doc(tagId).set({
-            name: tagName,
-            createdAt: ts,
-            updatedAt: ts,
-          });
-          return tagName;
-        }
-        return null;
-      })
-    );
-    for (const t of tagResults) { if (t) createdTags.push(t); }
-
-    let maxNumericId = 0;
-    try {
-      let lastId: string | null = null;
-      const PAGE_SIZE = 1000;
-      for (;;) {
-        let q = adminDb
-          .collection("wallpapers")
-          .orderBy("__name__")
-          .limit(PAGE_SIZE);
-        if (lastId) q = q.startAfter(lastId);
-        const snap = await q.get();
-        if (snap.empty) break;
-        for (const doc of snap.docs) {
-          const num = Number(doc.id);
-          if (!isNaN(num) && num > maxNumericId) maxNumericId = num;
-        }
-        if (snap.docs.length < PAGE_SIZE) break;
-        lastId = snap.docs[snap.docs.length - 1].id;
+    for (const item of items) {
+      if (isBlockedUrl(item.imageUrl)) {
+        return NextResponse.json(
+          { error: `Invalid imageUrl: ${item.imageUrl}` },
+          { status: 400 }
+        );
       }
-    } catch {
-      /* fallback */
     }
-    let nextId = maxNumericId + 1;
+
+    const ts = FieldValue.serverTimestamp();
+
+    const uniqueCats = [...new Set(items.map((i) => i.categoryId).filter(Boolean))];
+    const createdCategories: string[] = [];
+    for (const catId of uniqueCats) {
+      await adminDb.collection("categories").doc(catId).set(
+        {
+          name: catId.charAt(0).toUpperCase() + catId.slice(1),
+          id: catId,
+          description: "",
+          updatedAt: ts,
+        },
+        { merge: true }
+      );
+      createdCategories.push(catId);
+    }
+
+    const allTags = [...new Set(items.flatMap((i) => i.tags))].filter(Boolean);
+    const createdTags: string[] = [];
+    for (const tagName of allTags) {
+      const tagId = tagName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      if (!tagId) continue;
+      await adminDb.collection("tags").doc(tagId).set(
+        {
+          name: tagName,
+          id: tagId,
+          updatedAt: ts,
+        },
+        { merge: true }
+      );
+      createdTags.push(tagName);
+    }
 
     const results: BulkImportResult[] = [];
     const WRITE_CONCURRENCY = 20;
-    const now = new Date();
+    const now = FieldValue.serverTimestamp();
+
+    const seenUrls = new Set<string>();
 
     for (let i = 0; i < items.length; i += WRITE_CONCURRENCY) {
       const batch = items.slice(i, i + WRITE_CONCURRENCY);
       const batchResults = await Promise.all(
         batch.map(async (item, idx) => {
           try {
+            // Intra-batch dedup — avoids Firestore reads for duplicates within this batch
+            if (seenUrls.has(item.imageUrl)) {
+              return { url: item.imageUrl, status: "duplicate" as const };
+            }
+            seenUrls.add(item.imageUrl);
+
             const existing = await adminDb
               .collection("wallpapers")
               .where("imageUrl", "==", item.imageUrl)
@@ -165,11 +195,12 @@ export async function POST(request: NextRequest) {
 
             if (!existing.empty) return { url: item.imageUrl, status: "duplicate" as const };
 
-            const id = String(nextId + idx);
+            const id = await getNextWallpaperIdAdmin(adminDb);
             const title = item.title || urlToTitle(item.imageUrl) || `Wallpaper ${id}`;
 
             const data: Record<string, unknown> = {
               id,
+              slug: id,
               title,
               description: item.description || "",
               categoryId: item.categoryId,
@@ -184,18 +215,22 @@ export async function POST(request: NextRequest) {
               featured: false,
               trending: false,
               filename: urlToFilename(item.imageUrl),
+              thumbnailUrl: item.thumbnailUrl ?? item.imageUrl,
               uploaderId: uid,
               views: 0,
+              impressions: 0,
+              clicks: 0,
               downloads: 0,
               favorites: 0,
+              deleted: false,
               titleLower: title.toLowerCase(),
               lastEditedBy: uid,
               lastEditedAt: now,
               createdBy: uid,
               updatedBy: uid,
-              uploadDate: now.toISOString(),
-              createdAt: FieldValue.serverTimestamp() ?? now,
-              updatedAt: FieldValue.serverTimestamp() ?? now,
+              uploadDate: new Date().toISOString(),
+              createdAt: now,
+              updatedAt: now,
             };
 
             if (item.width > 0 && item.height > 0) {
@@ -216,7 +251,6 @@ export async function POST(request: NextRequest) {
           }
         })
       );
-      nextId += batch.length;
       results.push(...batchResults);
     }
 

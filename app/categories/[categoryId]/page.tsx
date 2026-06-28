@@ -26,7 +26,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // Live Firestore data — render at request time so the build workers
 // don't pre-render empty pages (workers can't reach Firestore).
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 interface CategoryPageProps {
   params: Promise<{ categoryId: string }>;
 }
@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   }
 
   // Try to read live count from Firestore; fall back to static
-  const fromFs = await getWallpapersByCategoryServer(categoryId, 500);
+  const fromFs = await getWallpapersByCategoryServer(categoryId, 2000);
   const wallpapers = fromFs.length > 0 ? fromFs : getStaticByCategory(categoryId);
   const title = `${category.name} Wallpapers — ${SITE_NAME}`;
   const description = category.description
@@ -129,9 +129,9 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 async function loadCategoryWallpapers(categoryId: string): Promise<Wallpaper[]> {
   if (categoryId === "all") {
-    return (await getAllWallpapersServer(500)) as unknown as Wallpaper[];
+    return (await getAllWallpapersServer(2000)) as unknown as Wallpaper[];
   }
-  return (await getWallpapersByCategoryServer(categoryId, 500)) as unknown as Wallpaper[];
+  return (await getWallpapersByCategoryServer(categoryId, 2000)) as unknown as Wallpaper[];
 }
 
 function buildCategory(categoryId: string) {

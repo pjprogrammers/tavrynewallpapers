@@ -24,7 +24,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // Live Firestore data — render at request time so the build workers
 // don't pre-render empty pages (workers can't reach Firestore).
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 export const metadata: Metadata = {
   title: `Recent Wallpapers | ${SITE_NAME}`,
   description: `Browse the latest wallpapers added to the ${SITE_NAME} collection. New 4K, HD, and 8K wallpapers added daily.`,
@@ -66,7 +66,7 @@ async function loadRecentWallpapers(): Promise<Wallpaper[]> {
   // the static /recent semantics). We cap at 200 to avoid pulling
   // the entire collection on every page load — the grid only shows
   // a subset anyway.
-  const fromFs = await getAllWallpapersServer(200);
+  const fromFs = await getAllWallpapersServer(2000);
   if (fromFs.length > 0) {
     const sorted = [...fromFs].sort((a, b) => {
       const da = a.uploadDate ? new Date(a.uploadDate).getTime() : 0;

@@ -20,7 +20,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // don't pre-render empty pages (workers can't reach Firestore). The
 // Firestore queries are sub-100ms so the per-request cost is negligible.
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 export async function generateMetadata(): Promise<Metadata> {
   const wallpapers = await loadAllWallpapers();
   const firstImage = wallpapers.length > 0
@@ -73,7 +73,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * and we don't need to pull the entire collection server-side.
  */
 async function loadAllWallpapers(): Promise<Wallpaper[]> {
-  const fromFs = await getAllWallpapersServer(200);
+  const fromFs = await getAllWallpapersServer(2000);
   if (fromFs.length > 0) {
     return fromFs.map(toWallpaper);
   }

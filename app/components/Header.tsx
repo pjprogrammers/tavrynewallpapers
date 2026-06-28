@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -44,16 +44,23 @@ const Header = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  /**
-   * Generate a reliable avatar URL:
-   * - Uses user's photoURL if available
-   * - Falls back to a DiceBear initial avatar based on display name or email
-   */
+  const [avatarError, setAvatarError] = useState(false);
+
+  const prevPhotoURL = useRef(user?.photoURL);
+
+  useEffect(() => {
+    if (user?.photoURL && user.photoURL !== prevPhotoURL.current) {
+      prevPhotoURL.current = user.photoURL;
+      setAvatarError(false);
+    }
+  }, [user?.photoURL]);
+
   const avatarUrl = useMemo(() => {
-    if (user?.photoURL) return user.photoURL;
-    // Default fallback to local avatar
+    if (user?.photoURL && !avatarError) return user.photoURL;
     return "/avatars_preset/aiden.svg";
-  }, [user]);
+  }, [user, avatarError]);
+
+  const handleAvatarError = useCallback(() => setAvatarError(true), []);
 
   /**
    * Handle header scroll effect
@@ -256,6 +263,7 @@ const Header = () => {
                   height={32}
                   unoptimized
                   className="user-avatar"
+                  onError={handleAvatarError}
                 />
                 <ChevronDown
                   size={14}
@@ -277,6 +285,7 @@ const Header = () => {
                     height={44}
                     unoptimized
                     className="user-dropdown-avatar"
+                    onError={handleAvatarError}
                   />
                   <div className="user-dropdown-info">
                     <span className="user-dropdown-name">
@@ -414,7 +423,7 @@ const Header = () => {
                   className="mobile-nav-link mobile-nav-user"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <Image src={avatarUrl} alt="Profile" width={36} height={36} unoptimized className="mobile-nav-avatar" />
+                  <Image src={avatarUrl} alt="Profile" width={36} height={36} unoptimized className="mobile-nav-avatar" onError={handleAvatarError} />
                   <span>Your Profile</span>
                 </Link>
                 <div className="mobile-nav-divider" />

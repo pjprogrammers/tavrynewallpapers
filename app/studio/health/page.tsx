@@ -1,6 +1,8 @@
 import { getHealthReport } from "@/lib/health-check-server";
 import HealthDashboard from "./HealthDashboard";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Health Dashboard | Studio | Tavryne Wallpapers",
   robots: { index: false, follow: false } as const,

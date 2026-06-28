@@ -150,10 +150,10 @@ export const createCroppedImage = (
       let cropW = pixelCrop.width;
       let cropH = pixelCrop.height;
 
-      if (cropW <= 1) cropW = image.width * pixelCrop.width / 100;
-      if (cropH <= 1) cropH = image.height * pixelCrop.height / 100;
-      if (cropX <= 1) cropX = image.width * pixelCrop.x / 100;
-      if (cropY <= 1) cropY = image.height * pixelCrop.y / 100;
+      if (cropW <= 1) cropW = image.width * pixelCrop.width;
+      if (cropH <= 1) cropH = image.height * pixelCrop.height;
+      if (cropX <= 1) cropX = image.width * pixelCrop.x;
+      if (cropY <= 1) cropY = image.height * pixelCrop.y;
 
       const size = Math.min(cropW, cropH);
       const startX = cropX + (cropW - size) / 2;

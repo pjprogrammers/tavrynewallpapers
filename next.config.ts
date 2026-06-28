@@ -162,6 +162,20 @@ const nextConfig: NextConfig = {
       // path. The global `/(.*)` rule above already applies
       // X-Content-Type-Options, Referrer-Policy, etc.
 
+      // Ensure sitemap.xml always has the correct Content-Type so
+      // crawlers parse it as XML. The route handler also sets this,
+      // but Vercel edge headers are applied after the handler returns,
+      // so this rule acts as a belt-and-suspenders guarantee.
+      {
+        source: "/sitemap.xml",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/xml; charset=utf-8",
+          },
+        ],
+      },
+
       // Short-cache for the public/ icon assets.
       // /favicon.ico is served from the app/ folder via the Next.js
       // convention and gets its own long-lived cache header, so it is

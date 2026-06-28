@@ -1,24 +1,7 @@
 "use client";
 
-/**
- * 🪝 useUserRoles
- * =================
- *
- * Client-side hook that resolves the current user's roles from two
- * sources, in priority order:
- *
- *  1. **Firebase Auth custom claims** (via `getIdTokenResult`). This is
- *     the authoritative source set by `manage-roles.ts` / Admin SDK.
- *  2. **Firestore `users/{uid}.roles` mirror** (via `onSnapshot`). This
- *     is a denormalized copy for fast UI reads.
- *
- * The two sources are merged, with custom claims taking precedence —
- * so a moderator whose Firestore doc hasn't been backfilled yet will
- * still see the correct UI.
- */
-
 import { useEffect, useState, useCallback } from "react";
-import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 import { getDB } from "./firebase";
 import { COLLECTIONS } from "./firestore-types";
@@ -45,7 +28,6 @@ export interface UseUserRolesResult {
   error: Error | null;
 }
 
-/** Merge custom claims (authoritative) with Firestore mirror, claims win. */
 function mergeRoles(
   mirror: UserRoles | null,
   claims: { admin: boolean; moderator: boolean } | null,
@@ -67,11 +49,32 @@ function mergeRoles(
   return base;
 }
 
+let sharedRoles: UserRoles | null = null;
+let sharedLoading = true;
+let sharedError: Error | null = null;
+let sharedPromise: Promise<void> | null = null;
+
+function fetchRoles(uid: string): Promise<void> {
+  if (sharedPromise) return sharedPromise;
+  sharedPromise = getDoc(doc(getDB(), COLLECTIONS.USERS, uid))
+    .then((snap) => {
+      sharedRoles = snap.exists()
+        ? (snap.data().roles as UserRoles | undefined) ?? null
+        : null;
+      sharedLoading = false;
+    })
+    .catch((err) => {
+      sharedError = err instanceof Error ? err : new Error(String(err));
+      sharedLoading = false;
+    });
+  return sharedPromise;
+}
+
 export function useUserRoles(): UseUserRolesResult {
   const { user } = useAuth();
-  const [roles, setRoles] = useState<UserRoles | null>(null);
-  const [loading, setLoading] = useState<boolean>(!!user);
-  const [error, setError] = useState<Error | null>(null);
+  const [roles, setRoles] = useState<UserRoles | null>(sharedRoles);
+  const [loading, setLoading] = useState<boolean>(!!user && sharedLoading);
+  const [error, setError] = useState<Error | null>(sharedError);
 
   useEffect(() => {
     if (!user) {
@@ -81,51 +84,29 @@ export function useUserRoles(): UseUserRolesResult {
       return;
     }
 
+    if (!sharedLoading && sharedRoles !== null) {
+      setRoles(sharedRoles);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    setError(null);
 
-    const ref = doc(getDB(), COLLECTIONS.USERS, user.uid);
-    let unsubFirestore: Unsubscribe = () => {};
-
-    const handleRoles = (mirror: UserRoles | null) => {
+    fetchRoles(user.uid).then(() => {
       user.getIdTokenResult().then((tokenResult) => {
         const claims = tokenResult.claims;
         setRoles(
-          mergeRoles(mirror, {
+          mergeRoles(sharedRoles, {
             admin: claims.admin === true,
             moderator: claims.moderator === true,
           }),
         );
         setLoading(false);
       }).catch(() => {
-        // Token result failed — use mirror alone (or null if no mirror)
-        setRoles(mirror);
+        setRoles(sharedRoles);
         setLoading(false);
       });
-    };
-
-    try {
-      unsubFirestore = onSnapshot(
-        ref,
-        (snap) => {
-          const mirror = snap.exists()
-            ? (snap.data().roles as UserRoles | undefined) ?? null
-            : null;
-          handleRoles(mirror);
-        },
-        (err) => {
-          console.warn("[useUserRoles] snapshot error:", err.message);
-          // Token result may still have claims
-          handleRoles(null);
-          setError(err);
-        },
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setLoading(false);
-    }
-
-    return () => unsubFirestore();
+    });
   }, [user]);
 
   const refreshToken = useCallback(async () => {
@@ -133,17 +114,16 @@ export function useUserRoles(): UseUserRolesResult {
     try {
       const tokenResult = await user.getIdTokenResult(true);
       const claims = tokenResult.claims ?? {};
-      const ref = doc(getDB(), COLLECTIONS.USERS, user.uid);
-      const snap = await import("firebase/firestore").then((m) => m.getDoc(ref));
+      const snap = await getDoc(doc(getDB(), COLLECTIONS.USERS, user.uid));
       const mirror = snap.exists()
         ? (snap.data().roles as UserRoles | undefined) ?? null
         : null;
-      setRoles(
-        mergeRoles(mirror, {
-          admin: claims?.admin === true,
-          moderator: claims?.moderator === true,
-        }),
-      );
+      sharedRoles = mirror;
+      const merged = mergeRoles(mirror, {
+        admin: claims?.admin === true,
+        moderator: claims?.moderator === true,
+      });
+      setRoles(merged);
     } catch (err) {
       console.warn("[useUserRoles] token refresh failed:", err);
     }

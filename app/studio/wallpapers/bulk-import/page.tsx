@@ -76,15 +76,7 @@ function normalizeRow(
   };
 }
 
-function detectDimensions(url: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => reject(new Error("Failed to load"));
-    img.crossOrigin = "anonymous";
-    img.src = url;
-  });
-}
+import { detectImageDimensions } from "@/lib/image-utils";
 
 function titleFromUrl(url: string, fallback: string): string {
   return (
@@ -376,9 +368,11 @@ export default function BulkImportPage() {
             let width = 0;
             let height = 0;
             try {
-              const dims = await detectDimensions(item.imageUrl);
-              width = dims.width;
-              height = dims.height;
+              const dims = await detectImageDimensions(item.imageUrl);
+              if (dims) {
+                width = dims.width;
+                height = dims.height;
+              }
             } catch { /* fallback */ }
             return {
               imageUrl: item.imageUrl,

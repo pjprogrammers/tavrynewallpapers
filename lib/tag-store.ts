@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getCountFromServer,
   setDoc,
   deleteDoc,
   query,
@@ -82,40 +83,27 @@ export async function deleteTag(id: string): Promise<void> {
 
 export async function getTagWallpaperCount(id: string): Promise<number> {
   try {
-    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
+    const db = getDB();
     const q = query(
-      ref,
+      collection(db, COLLECTIONS.WALLPAPERS),
       where("tags", "array-contains", id),
-      where("deleted", "==", false),
-      orderBy("__name__"),
-      limit(1000)
+      where("deleted", "==", false)
     );
-    const snap = await getDocs(q);
-    return snap.size;
-  } catch (err) {
-    console.warn(`[tag-store] getTagWallpaperCount(${id}) failed:`, err);
+    const snap = await getCountFromServer(q);
+    return snap.data().count;
+  } catch {
     return 0;
   }
 }
 
 export async function getAllTagCounts(): Promise<Record<string, number>> {
   try {
-    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
-    const q = query(ref, where("deleted", "==", false), orderBy("__name__"), limit(2000));
-    const snap = await getDocs(q);
-    const counts: Record<string, number> = {};
-    snap.forEach((d) => {
-      const data = d.data() as Record<string, unknown>;
-      const tags = data.tags as string[] | undefined;
-      if (Array.isArray(tags)) {
-        for (const tag of tags) {
-          counts[tag] = (counts[tag] ?? 0) + 1;
-        }
-      }
-    });
-    return counts;
-  } catch (err) {
-    console.warn("[tag-store] getAllTagCounts failed:", err);
+    const tags = await listTags();
+    const entries = await Promise.all(
+      tags.map(async (tag) => [tag.id, await getTagWallpaperCount(tag.id)] as const)
+    );
+    return Object.fromEntries(entries);
+  } catch {
     return {};
   }
 }

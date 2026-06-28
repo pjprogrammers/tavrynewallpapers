@@ -197,7 +197,7 @@ export default function AdminUsersPage() {
                 )}
                 {u.email && (
                   <button
-                    onClick={() => handleDeactivate(u.email!, u.isActive !== false)}
+                    onClick={() => handleDeactivate(u.email!, (u.isActive ?? true) !== false)}
                     className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-all ${
                       u.isActive === false
                         ? "bg-green-900/30 text-green-400 hover:bg-green-900/50"

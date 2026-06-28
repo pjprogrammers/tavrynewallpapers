@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Loader2,
   RotateCcw,
@@ -104,9 +105,8 @@ export default function DeletedPage() {
           {deleted.map((w) => (
             <div key={w.slug}
               className="flex items-center gap-4 p-3 bg-zinc-900/40 border border-red-900/30 rounded-xl hover:border-red-800/50 transition-all">
-              <div className="h-14 w-20 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700 opacity-50">
-                <img src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title}
-                  className="w-full h-full object-cover" loading="lazy" />
+              <div className="h-14 w-20 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700 opacity-50 relative">
+                <Image src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title} fill className="object-cover" unoptimized />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-400 truncate line-through">{w.title}</p>

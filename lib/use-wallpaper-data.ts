@@ -12,8 +12,8 @@
  *  - Apply moderator edits in realtime without reloading.
  */
 
-import { useEffect, useState } from "react";
-import { subscribeToWallpaper } from "./wallpaper-store";
+import { useEffect, useRef, useState } from "react";
+import { subscribeToWallpaper, subscribeToWallpapers } from "./wallpaper-store";
 import type { WallpaperMetadata } from "./firestore-types";
 
 export interface UseWallpaperDataResult {
@@ -62,6 +62,7 @@ export function useMultipleWallpapers(slugs: string[]) {
     new Map()
   );
   const [loading, setLoading] = useState<boolean>(slugs.length > 0);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (slugs.length === 0) {
@@ -71,25 +72,17 @@ export function useMultipleWallpapers(slugs: string[]) {
     }
 
     setLoading(true);
-    let cancelled = false;
 
-    // Dynamically import to avoid server-side import in client bundles
-    import("./wallpaper-store").then(({ subscribeToWallpapers }) => {
-      if (cancelled) return;
-      const unsubscribe = subscribeToWallpapers(slugs, (map) => {
-        setWallpapers(map);
-        setLoading(false);
-      });
-      // Store the unsubscribe on the cleanup closure below
-      (cleanupRef as { current: (() => void) | null }).current = unsubscribe;
+    const unsubscribe = subscribeToWallpapers(slugs, (map) => {
+      setWallpapers(map);
+      setLoading(false);
     });
+    cleanupRef.current = unsubscribe;
 
     return () => {
-      cancelled = true;
-      const ref = cleanupRef as { current: (() => void) | null };
-      if (ref.current) {
-        ref.current();
-        ref.current = null;
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the slug set changes
@@ -97,8 +90,5 @@ export function useMultipleWallpapers(slugs: string[]) {
 
   return { wallpapers, loading };
 }
-
-// Tiny mutable ref to allow the async cleanup pattern above
-const cleanupRef: { current: (() => void) | null } = { current: null };
 
 export default useWallpaperData;

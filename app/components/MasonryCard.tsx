@@ -14,12 +14,7 @@ import { Wallpaper } from "../lib/wallpapers";
 import { hashIdToColor } from "@/lib/masonry-engine";
 import type { MasonryPosition } from "@/lib/masonry-engine";
 import type { CategoryDoc } from "@/lib/firestore-types";
-
-const formatNumber = (num: number): string => {
-  if (num >= 1000000) return Math.floor(num / 1000000) + "M";
-  if (num >= 1000) return Math.floor(num / 1000) + "K";
-  return num.toString();
-};
+import { fmtCompact } from "@/lib/format";
 
 interface MasonryCardProps {
   wallpaper: Wallpaper;
@@ -225,15 +220,15 @@ export default function MasonryCard({
             )}
             <span className="masonry-card-stat-item">
               <Eye size={11} />
-              {formatNumber(wallpaper.views ?? 0)}
+              {fmtCompact(wallpaper.views ?? 0)}
             </span>
             <span className="masonry-card-stat-item">
               <Download size={11} />
-              {formatNumber(wallpaper.downloads ?? 0)}
+              {fmtCompact(wallpaper.downloads ?? 0)}
             </span>
             <span className="masonry-card-stat-item">
               <Heart size={11} fill={isFavorited ? "currentColor" : "none"} />
-              {formatNumber(wallpaper.favorites ?? 0)}
+              {fmtCompact(wallpaper.favorites ?? 0)}
             </span>
             <button
               onClick={handleDownloadClick}

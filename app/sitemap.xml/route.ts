@@ -44,8 +44,8 @@ const SITE_NAME = "Tavryne Wallpapers";
 const LISTING_LASTMOD = "2026-06-05";
 
 // Firestore reads can't run at build time on Vercel workers — the
-// sitemap is regenerated on each request and cached at the edge.
-export const dynamic = "force-dynamic";
+// sitemap is regenerated on each request and cached at the edge
+// via the Cache-Control header we set in the Response.
 export const revalidate = 900; // 15 min
 
 // -------------------------------------------------------------
@@ -64,6 +64,27 @@ function xmlEscape(input: string): string {
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max - 1).trimEnd() + "…";
+}
+
+/** Convert a Firestore Timestamp, Date, string, or undefined to a "YYYY-MM-DD" string. */
+function toDateString(
+  value: unknown,
+  fallback: string,
+): string {
+  if (!value) return fallback;
+  // Firestore Timestamp (has toDate())
+  if (typeof value === "object" && "toDate" in (value as object)) {
+    return (value as { toDate(): Date }).toDate().toISOString().slice(0, 10);
+  }
+  // Date object
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  // Plain string
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+  return fallback;
 }
 
 interface SitemapImage {
@@ -260,9 +281,9 @@ async function buildEntries(): Promise<SitemapEntry[]> {
   for (const wallpaper of wallpapers) {
     if (wallpaper.visible === false || wallpaper.published === false || wallpaper.deleted) continue;
 
-    const lastmod = wallpaper.uploadDate
-      ? new Date(wallpaper.uploadDate).toISOString().slice(0, 10)
-      : today;
+    // Use updatedAt (reflects real edits) over the immutable uploadDate.
+    // Falls back to uploadDate → today.
+    const lastmod = toDateString(wallpaper.updatedAt, toDateString(wallpaper.uploadDate, today));
 
     const category = categories.find((c) => c.id === wallpaper.categoryId);
     const categoryName = category?.name ?? "wallpaper";

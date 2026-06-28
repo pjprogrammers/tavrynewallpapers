@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "role": "tsx scripts/manage-roles.ts",
     "import-public": "tsx scripts/import-public.ts",
-    "generate-favicons": "tsx scripts/generate-favicons.ts"
+    "generate-favicons": "tsx scripts/generate-favicons.ts",
+    "backfill": "tsx scripts/backfill-wallpapers.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",

@@ -4,7 +4,7 @@ import { Inter, Montserrat, Poppins } from 'next/font/google';
 import type { Metadata, Viewport } from 'next';
 import { AuthProvider } from '@/lib/auth-context';
 import Providers from './providers';
-import { categories, getAllWallpapers, getFeaturedWallpapers } from './lib/wallpapers';
+import { categories } from './lib/wallpapers';
 
 // ----------------------
 // Fonts Setup
@@ -199,7 +199,7 @@ export const metadata: Metadata = {
     'msapplication-TileImage': `${SITE_URL}/icon-256.png?${ICON_VERSION}`,
     'msapplication-config': '/site.webmanifest',
     'twitter:label1': 'Wallpaper count',
-    'twitter:data1': `${getAllWallpapers().length}+`,
+    'twitter:data1': '500+',
     'twitter:label2': 'Resolution range',
     'twitter:data2': 'HD, 4K, 8K',
   },

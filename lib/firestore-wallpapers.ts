@@ -7,7 +7,6 @@ import {
   where,
   orderBy,
   limit,
-  serverTimestamp,
   type DocumentReference,
 } from "firebase/firestore";
 
@@ -17,22 +16,6 @@ import {
   WallpaperMetadata,
 } from "./firestore-types";
 
-export const createWallpaper = async (
-  data: Omit<WallpaperMetadata, "id" | "createdAt" | "updatedAt"> & {
-    id?: string;
-  }
-): Promise<string> => {
-  const db = getDB();
-  const wallpaperRef = doc(db, COLLECTIONS.WALLPAPERS, data.id || "");
-  const batch = await import("firebase/firestore").then((m) => m.writeBatch(db));
-  batch.set(wallpaperRef, {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  await batch.commit();
-  return data.id || "";
-};
 
 export const getWallpaperMetadata = async (
   wallpaperId: string

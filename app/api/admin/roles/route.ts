@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { ALL_ROLES, isUserRole, toUserRoles, fromUserRoles } from "@/lib/roles";
+import { FieldValue } from "firebase-admin/firestore";
 import { COLLECTIONS } from "@/lib/firestore-types";
 import type { UserProfile, UserRoles } from "@/lib/firestore-types";
+
+const ADMIN_RATE_LIMIT = 60;
+const ADMIN_RATE_WINDOW = 60_000;
+const adminRateMap = new Map<string, { count: number; resetAt: number }>();
 
 interface RoleActionBody {
   action: "add" | "remove" | "set" | "get";
@@ -68,6 +73,23 @@ export async function POST(request: NextRequest) {
     const adminUid = await verifyAdmin(authHeader.slice(7));
     if (!adminUid) {
       return NextResponse.json({ error: "Insufficient permissions." }, { status: 403 });
+    }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? request.headers.get("x-real-ip")
+      ?? "unknown";
+    const now = Date.now();
+    const entry = adminRateMap.get(ip);
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= ADMIN_RATE_LIMIT) {
+        return NextResponse.json(
+          { error: "Too many requests" },
+          { status: 429, headers: { "Retry-After": "60" } }
+        );
+      }
+      entry.count++;
+    } else {
+      adminRateMap.set(ip, { count: 1, resetAt: now + ADMIN_RATE_WINDOW });
     }
 
     const adminAuth = getAdminAuth()!;
@@ -147,6 +169,18 @@ export async function POST(request: NextRequest) {
     }
 
     await setCustomClaimsAndMirror(uid, email, merged);
+
+    const adminUser = await adminAuth.getUser(adminUid);
+    try {
+      await adminDb.collection("auditLog").add({
+        action: "roles." + action,
+        actor: adminUser.email || adminUid,
+        target: email,
+        details: { roles: merged, previousRoles: existingRoles },
+        timestamp: FieldValue.serverTimestamp(),
+        ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown",
+      });
+    } catch {}
 
     return NextResponse.json({
       success: true,

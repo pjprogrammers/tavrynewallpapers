@@ -16,6 +16,9 @@ async function ensureIndex(): Promise<void> {
       return;
     }
 
+    // Try loading persisted index first
+    if (await loadPersistedIndex()) return;
+
     const idx = new FlexSearch.Index({
       tokenize: "full",
       cache: 100,
@@ -47,6 +50,9 @@ async function ensureIndex(): Promise<void> {
     }
 
     index = idx;
+
+    // Persist the built index so subsequent cold starts skip the scan
+    persistIndex();
   })();
 
   return buildPromise;
@@ -55,6 +61,56 @@ async function ensureIndex(): Promise<void> {
 export function resetIndex(): void {
   index = null;
   buildPromise = null;
+
+  // Delete persisted index so next cold start does a full rebuild
+  const db = getAdminDb();
+  if (db) {
+    db.collection(INDEX_COLLECTION).doc(INDEX_DOC_ID).delete().catch(() => {});
+  }
+}
+
+const INDEX_DOC_ID = "---flexsearch---";
+const INDEX_COLLECTION = "meta";
+
+export async function persistIndex(): Promise<void> {
+  if (!index) await ensureIndex();
+  if (!index) return;
+  const db = getAdminDb();
+  if (!db) return;
+  try {
+    const exportData: Record<string, string> = {};
+    const keys = (index as any).keys?.() ?? [];
+    for (const key of keys.slice(0, 50000)) {
+      const val = (index as any).get(key) as string | undefined;
+      if (val) exportData[key] = val;
+    }
+    await db.collection(INDEX_COLLECTION).doc(INDEX_DOC_ID).set({
+      updatedAt: new Date(),
+      entries: exportData,
+    });
+  } catch {
+    // Persist best-effort
+  }
+}
+
+export async function loadPersistedIndex(): Promise<boolean> {
+  const db = getAdminDb();
+  if (!db) return false;
+  try {
+    const snap = await db.collection(INDEX_COLLECTION).doc(INDEX_DOC_ID).get();
+    if (!snap.exists) return false;
+    const data = snap.data();
+    if (!data?.entries) return false;
+    const idx = new FlexSearch.Index({ tokenize: "full", cache: 100 });
+    const entries = data.entries as Record<string, string>;
+    for (const [key, val] of Object.entries(entries)) {
+      idx.add(key as any, val);
+    }
+    index = idx;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function searchIds(

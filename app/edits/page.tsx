@@ -12,7 +12,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // doesn't try to pre-render (workers can't reach Firestore, and even if
 // they could, the page would be stale by the time a user visits).
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 export const metadata: Metadata = {
   title: `Recent Edits | ${SITE_NAME}`,
   description: `A live activity feed of wallpaper metadata changes on ${SITE_NAME}. Watch moderators and admins update titles, descriptions, categories, tags, and featured flags across our 4K, HD, and 8K wallpaper catalog.`,

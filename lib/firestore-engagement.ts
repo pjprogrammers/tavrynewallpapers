@@ -2,7 +2,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  deleteDoc,
   setDoc,
   collection,
   query,
@@ -26,11 +25,43 @@ import {
   Download,
 } from "./firestore-types";
 
+function checkClientRateLimit(userId: string, action: string): { allowed: boolean; retryAfter?: number } {
+  try {
+    const key = `rl_${userId}_${action}`;
+    const now = Date.now();
+    const stored = sessionStorage.getItem(key);
+    if (stored) {
+      const { count, windowStart } = JSON.parse(stored) as { count: number; windowStart: number };
+      const windowMs = 60_000;
+      const max = action === "download" ? 20 : 60;
+      if (now - windowStart > windowMs) {
+        sessionStorage.setItem(key, JSON.stringify({ count: 1, windowStart: now }));
+        return { allowed: true };
+      }
+      if (count >= max) {
+        const retryAfter = Math.ceil((windowStart + windowMs - now) / 1000);
+        return { allowed: false, retryAfter };
+      }
+      sessionStorage.setItem(key, JSON.stringify({ count: count + 1, windowStart }));
+      return { allowed: true };
+    }
+    sessionStorage.setItem(key, JSON.stringify({ count: 1, windowStart: now }));
+    return { allowed: true };
+  } catch {
+    return { allowed: true };
+  }
+}
+
 export const toggleFavorite = async (
   userId: string,
   wallpaperId: string,
   wallpaperData?: { slug: string; title: string; thumbnail?: string }
 ): Promise<{ favorited: boolean; error?: string }> => {
+  const rateCheck = checkClientRateLimit(userId, "favorite");
+  if (!rateCheck.allowed) {
+    return { favorited: false, error: `Rate limit exceeded. Try again in ${rateCheck.retryAfter} seconds.` };
+  }
+
   const db = getDB();
   const favoriteRef = doc(db, COLLECTIONS.USERS, userId, COLLECTIONS.FAVORITES, wallpaperId);
 
@@ -87,10 +118,8 @@ export const checkMultipleFavorites = async (
   const resultMap = new Map<string, boolean>();
   if (wallpaperIds.length === 0) return resultMap;
 
-  // Initialise all as false
   for (const id of wallpaperIds) resultMap.set(id, false);
 
-  // Firestore `in` supports up to 30 values per query
   const CHUNK = 30;
   const favsRef = collection(getDB(), COLLECTIONS.USERS, userId, COLLECTIONS.FAVORITES);
   const seen = new Set<string>();
@@ -156,6 +185,11 @@ export const recordDownload = async (
   await updateDoc(wallpaperRef, { downloads: increment(1) });
 
   if (userId) {
+    const rateCheck = checkClientRateLimit(userId, "download");
+    if (!rateCheck.allowed) {
+      return { error: `Rate limit exceeded. Try again in ${rateCheck.retryAfter} seconds.` };
+    }
+
     const downloadRef = doc(collection(db, COLLECTIONS.USERS, userId, COLLECTIONS.DOWNLOADS));
     await setDoc(downloadRef, {
       wallpaperId: data.wallpaperId,

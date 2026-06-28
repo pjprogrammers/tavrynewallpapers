@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase-admin";
 
+const ADMIN_RATE_LIMIT = 20;
+const ADMIN_RATE_WINDOW = 60_000;
+const adminRateMap = new Map<string, { count: number; resetAt: number }>();
+
 // Generate unique ID without external dependency
 function generateUniqueId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -229,6 +233,23 @@ export async function POST(request: NextRequest) {
       verifiedToken = decoded as { uid: string; admin?: boolean; moderator?: boolean };
     } catch {
       return NextResponse.json({ success: false, error: "Invalid or expired token." }, { status: 401 });
+    }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? request.headers.get("x-real-ip")
+      ?? "unknown";
+    const now = Date.now();
+    const entry = adminRateMap.get(ip);
+    if (entry && now < entry.resetAt) {
+      if (entry.count >= ADMIN_RATE_LIMIT) {
+        return NextResponse.json(
+          { error: "Too many requests" },
+          { status: 429, headers: { "Retry-After": "60" } }
+        );
+      }
+      entry.count++;
+    } else {
+      adminRateMap.set(ip, { count: 1, resetAt: now + ADMIN_RATE_WINDOW });
     }
 
     // Parse request body

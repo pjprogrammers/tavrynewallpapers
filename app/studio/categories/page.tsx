@@ -16,6 +16,7 @@ import {
   getAllCategoryCounts,
 } from "@/lib/category-store";
 import type { CategoryDoc } from "@/lib/firestore-types";
+import { slugify } from "@/lib/slug";
 
 export default function StudioCategoriesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -33,9 +34,6 @@ export default function StudioCategoriesPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkInput, setBulkInput] = useState("");
   const [bulkResults, setBulkResults] = useState<string[] | null>(null);
-
-  const slugify = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
   const canEdit = user && hasPermission(user, "wallpaper.edit", roles);
 

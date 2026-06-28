@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Shield,
   ShieldCheck,
@@ -345,6 +345,12 @@ function BrokenImageCard({ wallpapers }: { wallpapers: HealthReport["wallpapers"
   const [broken, setBroken] = useState<BrokenResult[]>([]);
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -352,41 +358,47 @@ function BrokenImageCard({ wallpapers }: { wallpapers: HealthReport["wallpapers"
     setProgress(0);
     const results: BrokenResult[] = [];
     const total = wallpapers.length;
+    const BATCH = 5;
 
-    for (let i = 0; i < total; i++) {
-      const w = wallpapers[i];
-      if (!w.imageUrl) {
-        results.push({ message: `"${w.title}" (${w.id}) – no URL`, severity: "error" });
-      } else {
-        try {
-          const res = await fetch(w.imageUrl, { method: "HEAD", mode: "no-cors" });
-          if (res.type === "opaque") {
-            // no-cors HEAD — can't read status, try loading for dimensions
-            try {
-              const dims = await getImageDimensions(w.imageUrl);
-              if (dims.width === 0 || dims.height === 0) {
-                results.push({ message: `"${w.title}" (${w.id}) – zero dimensions`, severity: "warning" });
-              }
-            } catch {
-              results.push({ message: `"${w.title}" (${w.id}) – unreachable`, severity: "error" });
-            }
-          } else if (!res.ok) {
-            results.push({ message: `"${w.title}" (${w.id}) – HTTP ${res.status}`, severity: "error" });
-          } else {
-            const dims = await getImageDimensions(w.imageUrl);
-            if (dims.width === 0 || dims.height === 0) {
-              results.push({ message: `"${w.title}" (${w.id}) – zero dimensions`, severity: "warning" });
-            }
+    for (let i = 0; i < total && mountedRef.current; i += BATCH) {
+      const batch = wallpapers.slice(i, i + BATCH);
+      const batchResults = await Promise.all(
+        batch.map(async (w) => {
+          if (!w.imageUrl) {
+            return { message: `"${w.title}" (${w.id}) – no URL`, severity: "error" as const };
           }
-        } catch {
-          results.push({ message: `"${w.title}" (${w.id}) – fetch failed`, severity: "error" });
-        }
-      }
-      setProgress(i + 1);
+          try {
+            const res = await fetch(`/api/health/https?url=${encodeURIComponent(w.imageUrl)}`, {
+              signal: AbortSignal.timeout(5000),
+            });
+            const data = await res.json();
+            if (data.ok) {
+              try {
+                const dims = await getImageDimensions(w.imageUrl);
+                if (dims.width === 0 || dims.height === 0) {
+                  return { message: `"${w.title}" (${w.id}) – zero dimensions`, severity: "warning" as const };
+                }
+              } catch {
+                return { message: `"${w.title}" (${w.id}) – unreachable`, severity: "error" as const };
+              }
+            } else {
+              return { message: `"${w.title}" (${w.id}) – HTTP ${data.status}`, severity: "error" as const };
+            }
+          } catch {
+            return { message: `"${w.title}" (${w.id}) – fetch failed`, severity: "error" as const };
+          }
+          return null;
+        })
+      );
+      const filtered = batchResults.filter((r): r is NonNullable<typeof r> => r !== null);
+      results.push(...filtered);
+      setProgress(Math.min(i + BATCH, total));
     }
 
-    setBroken(results);
-    setChecking(false);
+    if (mountedRef.current) {
+      setBroken(results);
+      setChecking(false);
+    }
   }, [wallpapers]);
 
   const allOk = broken.length === 0 && !checking && progress > 0;

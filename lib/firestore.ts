@@ -8,7 +8,6 @@ export {
 } from "./firestore-users";
 
 export {
-  createWallpaper,
   getWallpaperMetadata,
   getWallpapersByCategory,
   getAllWallpapers,

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Loader2,
   CheckCircle2,
@@ -123,9 +124,8 @@ export default function DraftsPage() {
           {drafts.map((w) => (
             <div key={w.slug}
               className="flex items-center gap-4 p-4 bg-zinc-900/40 border border-zinc-800 rounded-xl hover:border-amber-500/30 transition-all">
-              <div className="h-16 w-24 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700">
-                <img src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title}
-                  className="w-full h-full object-cover" loading="lazy" />
+              <div className="h-16 w-24 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700 relative">
+                <Image src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title} fill className="object-cover" unoptimized />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-200 truncate">{w.title}</p>

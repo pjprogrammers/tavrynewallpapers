@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Image from "next/image";
 import {
   Loader2,
   CheckCircle2,
@@ -19,7 +20,7 @@ import TagSelector from "./TagSelector";
 
 function detectImageDimensions(url: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
+    const img = document.createElement("img");
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
     img.onerror = () => reject(new Error("Failed to load image"));
     img.crossOrigin = "anonymous";
@@ -28,9 +29,8 @@ function detectImageDimensions(url: string): Promise<{ width: number; height: nu
 }
 
 export const STORAGE_PROVIDERS = [
-  { value: "", label: "Auto-detect" },
   { value: "cloudinary", label: "Cloudinary" },
-  { value: "r2", label: "Cloudflare R2" },
+  { value: "local", label: "Local" },
 ] as const;
 
 export interface FormState {
@@ -231,8 +231,8 @@ export default function EditWallpaperFormFields({
         </div>
         {form.imageUrl && (
           <div className="mt-3 rounded-xl overflow-hidden border border-zinc-700 bg-zinc-900/50">
-            <img src={form.imageUrl} alt="Preview" className="max-h-64 w-full object-contain"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <Image src={form.imageUrl} alt="Preview" width={400} height={300} className="max-h-64 w-full object-contain" unoptimized
+              onError={(e) => { (e.currentTarget.style.display = "none"); }} />
           </div>
         )}
       </div>

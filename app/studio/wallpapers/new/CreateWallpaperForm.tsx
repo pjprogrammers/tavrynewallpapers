@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useUserRoles } from "@/lib/use-user-roles";
 import { hasPermission } from "@/lib/roles";
 import { categories, tags as allTags } from "../../../lib/wallpapers";
-import { upsertWallpaper, checkTitleExists, checkImageUrlExists } from "@/lib/wallpaper-store";
+import { getNextWallpaperId, upsertWallpaper, checkTitleExists, checkImageUrlExists } from "@/lib/wallpaper-store";
 import { getResolutionTier } from "@/lib/use-wallpaper-filters";
 import { createSlug } from "@/lib/slug";
 import { COLLECTIONS } from "@/lib/firestore-types";
@@ -26,9 +26,8 @@ import { getDB } from "@/lib/firebase";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 
 const STORAGE_PROVIDERS = [
-  { value: "", label: "Auto-detect" },
   { value: "cloudinary", label: "Cloudinary" },
-  { value: "r2", label: "Cloudflare R2" },
+  { value: "local", label: "Local" },
 ] as const;
 
 interface FormState {
@@ -58,32 +57,22 @@ const defaultForm: FormState = {
   width: "",
   height: "",
   imageUrl: "",
-  storageProvider: "",
+  storageProvider: "cloudinary",
   featured: false,
   trending: false,
   visible: true,
   published: true,
 };
 
-function detectImageDimensions(url: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.crossOrigin = "anonymous";
-    img.src = url;
-  });
-}
+import { detectImageDimensions } from "@/lib/image-utils";
 
 function detectStorageProvider(url: string): string {
   try {
-    const u = new URL(url);
-    const host = u.hostname;
+    const host = new URL(url).hostname;
     if (host.includes("cloudinary.com")) return "cloudinary";
-    if (host.includes(".r2.dev") || host.includes("r2.cloudflarestorage.com") || host.includes("cloudflare")) return "r2";
-    return "";
+    return "local";
   } catch {
-    return "";
+    return "local";
   }
 }
 
@@ -126,12 +115,13 @@ export default function CreateWallpaperForm() {
     if (!url || !url.startsWith("http")) return;
     setDetecting(true);
     try {
-      const { width, height } = await detectImageDimensions(url);
+      const dims = await detectImageDimensions(url);
+      if (!dims) return;
       setForm((f) => ({
         ...f,
-        width: String(width),
-        height: String(height),
-        resolution: `${width}x${height}`,
+        width: String(dims.width),
+        height: String(dims.height),
+        resolution: `${dims.width}x${dims.height}`,
       }));
     } catch {
       // silently fail — user can enter dimensions manually
@@ -168,20 +158,9 @@ export default function CreateWallpaperForm() {
           throw new Error("This image URL already exists in the database. Duplicate wallpapers are not allowed.");
         }
 
-        const q = query(
-          collection(getDB(), COLLECTIONS.WALLPAPERS),
-          orderBy("id", "desc"),
-          limit(1)
-        );
-        const snap = await getDocs(q);
-        let nextNum = 1;
-        snap.forEach((d) => {
-          const id = Number(d.data().id);
-          if (!isNaN(id)) nextNum = id + 1;
-        });
-        const nextId = String(nextNum);
+        const nextId = await getNextWallpaperId();
 
-        const storageProvider = form.storageProvider || detectStorageProvider(imageUrlTrimmed) || undefined;
+        const storageProvider = detectStorageProvider(imageUrlTrimmed) || form.storageProvider;
 
         await upsertWallpaper({
           slug: nextId,

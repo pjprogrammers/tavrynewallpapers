@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Loader2,
   Sparkles,
@@ -32,7 +33,7 @@ export default function FeaturedManagerPage() {
 
   const fetch = useCallback(async () => {
     setLoading(true);
-    const all = await getAllWallpapersFromFirestore(500);
+    const all = await getAllWallpapersFromFirestore(2000);
     setWallpapers(all);
     setLoading(false);
   }, []);
@@ -104,9 +105,8 @@ export default function FeaturedManagerPage() {
                 {featured.map((w) => (
                   <div key={w.slug}
                     className="flex items-center gap-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                    <div className="h-12 w-20 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700">
-                      <img src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title}
-                        className="w-full h-full object-cover" loading="lazy" />
+                    <div className="h-12 w-20 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700 relative">
+                      <Image src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title} fill className="object-cover" unoptimized />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-zinc-200 truncate">{w.title}</p>
@@ -141,9 +141,8 @@ export default function FeaturedManagerPage() {
                 {filteredNotFeatured.slice(0, 50).map((w) => (
                   <div key={w.slug}
                     className="flex items-center gap-4 p-3 bg-zinc-900/40 border border-zinc-800 rounded-xl hover:border-zinc-700 transition-all">
-                    <div className="h-12 w-20 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700">
-                      <img src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title}
-                        className="w-full h-full object-cover" loading="lazy" />
+                    <div className="h-12 w-20 rounded-lg overflow-hidden bg-zinc-800 shrink-0 ring-1 ring-zinc-700 relative">
+                      <Image src={resolveThumbnailUrl(w) ?? `/wallpapers/${w.filename}`} alt={w.title} fill className="object-cover" unoptimized />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-zinc-200 truncate">{w.title}</p>

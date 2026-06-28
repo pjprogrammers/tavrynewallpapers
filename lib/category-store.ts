@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getCountFromServer,
   setDoc,
   deleteDoc,
   query,
@@ -84,32 +85,27 @@ export async function deleteCategory(id: string): Promise<void> {
 
 export async function getCategoryWallpaperCount(id: string): Promise<number> {
   try {
-    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
-    const q = query(ref, where("categoryId", "==", id), where("deleted", "==", false), orderBy("__name__"), limit(1000));
-    const snap = await getDocs(q);
-    return snap.size;
-  } catch (err) {
-    console.warn(`[category-store] getCategoryWallpaperCount(${id}) failed:`, err);
+    const db = getDB();
+    const q = query(
+      collection(db, COLLECTIONS.WALLPAPERS),
+      where("categoryId", "==", id),
+      where("deleted", "==", false)
+    );
+    const snap = await getCountFromServer(q);
+    return snap.data().count;
+  } catch {
     return 0;
   }
 }
 
 export async function getAllCategoryCounts(): Promise<Record<string, number>> {
   try {
-    const ref = collection(getDB(), COLLECTIONS.WALLPAPERS);
-    const q = query(ref, where("deleted", "!=", true), limit(2000));
-    const snap = await getDocs(q);
-    const counts: Record<string, number> = {};
-    snap.forEach((d) => {
-      const data = d.data() as Record<string, unknown>;
-      const catId = data.categoryId as string;
-      if (catId) {
-        counts[catId] = (counts[catId] ?? 0) + 1;
-      }
-    });
-    return counts;
-  } catch (err) {
-    console.warn("[category-store] getAllCategoryCounts failed:", err);
+    const cats = await listCategories();
+    const entries = await Promise.all(
+      cats.map(async (cat) => [cat.id, await getCategoryWallpaperCount(cat.id)] as const)
+    );
+    return Object.fromEntries(entries);
+  } catch {
     return {};
   }
 }

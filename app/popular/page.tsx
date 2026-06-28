@@ -28,7 +28,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // Live Firestore data — render at request time so the build workers
 // don't pre-render empty pages (workers can't reach Firestore).
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 export const metadata: Metadata = {
   title: `Popular Wallpapers | ${SITE_NAME}`,
   description: `The most-downloaded wallpapers on ${SITE_NAME}. Discover what the community loves most — 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.`,

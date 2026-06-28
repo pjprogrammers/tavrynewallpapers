@@ -49,7 +49,21 @@ export async function GET(request: NextRequest) {
     ?? request.headers.get("x-real-ip")
     ?? "unknown";
 
-  if (!checkRate(ip)) {
+  const authHeader = request.headers.get("authorization");
+  let isPrivileged = false;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const { getAdminAuth } = await import("@/lib/firebase-admin");
+      const adminAuth = getAdminAuth();
+      if (adminAuth) {
+        const decoded = await adminAuth.verifyIdToken(authHeader.slice(7));
+        if (decoded.admin || decoded.moderator) isPrivileged = true;
+      }
+    } catch {
+    }
+  }
+
+  if (!isPrivileged && !checkRate(ip)) {
     return NextResponse.json(
       { error: "Too many requests" },
       { status: 429, headers: { "Retry-After": "60" } }
@@ -57,7 +71,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.trim() ?? "";
+  const q = (searchParams.get("q")?.trim() ?? "").replace(/[\x00-\x1f\x7f]/g, "");
   const pageStr = searchParams.get("page") ?? "1";
   const pageSizeStr = searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE);
 

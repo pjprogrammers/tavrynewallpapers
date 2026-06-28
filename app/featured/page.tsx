@@ -24,7 +24,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // Live Firestore data — render at request time so the build workers
 // don't pre-render empty pages (workers can't reach Firestore).
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 export const metadata: Metadata = {
   title: `Featured Wallpapers | ${SITE_NAME}`,
   description: "Discover our curated collection of handpicked featured wallpapers on Tavryne Wallpapers. High-quality 4K, HD, and 8K anime, gaming, cyberpunk, and aesthetic wallpapers.",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
 };
 
 async function loadFeaturedWallpapers(): Promise<Wallpaper[]> {
-  const fromFs = await getFeaturedWallpapersServer(200);
+  const fromFs = await getFeaturedWallpapersServer(2000);
   if (fromFs.length > 0) {
     return fromFs as unknown as Wallpaper[];
   }

@@ -15,19 +15,7 @@ import { hasPermission } from "@/lib/roles";
 import {
   getAllWallpapersForStudio,
 } from "@/lib/wallpaper-store";
-import { formatAspectRatio, deriveOrientation } from "@/lib/wallpaper-utils";
-import { withResolutionTag } from "@/lib/resolution-tiers";
-import type { WallpaperMetadata } from "@/lib/firestore-types";
-import { COLLECTIONS } from "@/lib/firestore-types";
-import { getDB } from "@/lib/firebase";
-import { doc, writeBatch, serverTimestamp } from "firebase/firestore";
-
-interface WallpaperFix {
-  slug: string;
-  id: string;
-  title: string;
-  fixed: string[];
-}
+import { recalculateWallpapers, type RecalculateResult } from "@/lib/recalculate";
 
 function parseIdList(input: string): number[] {
   const ids: number[] = [];
@@ -47,11 +35,9 @@ export default function RecalculatePage() {
   const [toId, setToId] = useState("");
   const [specificIds, setSpecificIds] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [results, setResults] = useState<WallpaperFix[] | null>(null);
+  const [results, setResults] = useState<RecalculateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [current, setCurrent] = useState<string | null>(null);
-  const [processed, setProcessed] = useState(0);
-  const [total, setTotal] = useState(0);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
 
   const canEdit = user && hasPermission(user, "wallpaper.edit", roles);
 
@@ -98,74 +84,15 @@ export default function RecalculatePage() {
           }
         }
 
-        setTotal(filtered.length);
+        setProcessingStatus(`Processing ${filtered.length} wallpaper${filtered.length === 1 ? "" : "s"}...`);
 
-        const fixes: WallpaperFix[] = [];
-        const BATCH_SIZE = 50;
-        const db = getDB();
-
-        for (let i = 0; i < filtered.length; i += BATCH_SIZE) {
-          const chunk = filtered.slice(i, i + BATCH_SIZE);
-          const batch = writeBatch(db);
-
-          let batchHasWrites = false;
-
-          for (const w of chunk) {
-            setCurrent(w.title);
-            setProcessed(i + chunk.indexOf(w) + 1);
-
-            const update: Record<string, unknown> = {};
-            const fixed: string[] = [];
-
-            if (w.width && w.height && w.width > 0 && w.height > 0) {
-              const ratio = formatAspectRatio(w.width, w.height);
-              if (ratio && w.aspectRatio !== ratio) {
-                update.aspectRatio = ratio;
-                fixed.push("aspectRatio");
-              }
-
-              const orientation = deriveOrientation(w.width, w.height);
-              if (w.orientation !== orientation) {
-                update.orientation = orientation;
-                fixed.push("orientation");
-              }
-
-              const updatedTags = withResolutionTag(w.tags ?? [], w.width, w.height);
-              const oldTags = w.tags ?? [];
-              if (
-                updatedTags.length !== oldTags.length ||
-                updatedTags.some((t, j) => t !== oldTags[j])
-              ) {
-                update.tags = updatedTags;
-                fixed.push("resolutionTag");
-              }
-            }
-
-            if (fixed.length > 0) {
-              const ref = doc(db, COLLECTIONS.WALLPAPERS, w.slug);
-              batch.update(ref, {
-                ...update,
-                updatedAt: serverTimestamp(),
-                updatedBy: user.uid,
-              });
-              batchHasWrites = true;
-              fixes.push({ slug: w.slug, id: w.id, title: w.title, fixed });
-            }
-          }
-
-          if (batchHasWrites) {
-            await batch.commit();
-          }
-        }
-
-        setResults(fixes);
+        const result = await recalculateWallpapers(filtered);
+        setResults(result);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setProcessing(false);
-        setCurrent(null);
-        setProcessed(0);
-        setTotal(0);
+        setProcessingStatus(null);
       }
     },
     [user, fromId, toId, specificIds]
@@ -271,35 +198,29 @@ export default function RecalculatePage() {
           <div className="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
             <div className="flex items-center gap-2 mb-3 text-sm">
               <CheckCircle2 size={16} className="text-emerald-400" />
-              <span className="text-zinc-200">Updated {results.length} wallpaper{results.length === 1 ? "" : "s"}</span>
+              <span className="text-zinc-200">
+                Updated {results.updated} wallpaper{results.updated === 1 ? "" : "s"}
+                {results.skipped > 0 && (
+                  <span className="text-zinc-500 ml-2">
+                    ({results.skipped} skipped)
+                  </span>
+                )}
+              </span>
             </div>
-            {results.length > 0 && (
+            {results.errors.length > 0 && (
               <div className="max-h-48 overflow-y-auto space-y-1">
-                {results.map((r) => (
-                  <div key={r.slug} className="text-xs text-zinc-400">
-                    <Link href={`/studio/wallpapers/edit/${r.id}`} className="text-zinc-300 hover:text-amber-400">
-                      {r.title}
-                    </Link>
-                    <span className="text-zinc-600"> &mdash; </span>
-                    {r.fixed.join(", ")}
-                  </div>
+                {results.errors.map((err, i) => (
+                  <div key={i} className="text-xs text-red-400">{err}</div>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {current && (
-          <div className="flex flex-col gap-1 text-sm text-zinc-400">
-            <div className="flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin text-amber-400" />
-              Processing: {current}
-            </div>
-            {total > 0 && (
-              <p className="text-xs text-zinc-500 ml-6">
-                {processed} of {total}
-              </p>
-            )}
+        {processingStatus && (
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <Loader2 size={14} className="animate-spin text-amber-400" />
+            {processingStatus}
           </div>
         )}
 

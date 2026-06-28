@@ -139,7 +139,7 @@ export async function getWallpaperBySlugServer(
 }
 
 export async function getAllWallpapersServer(
-  pageSize: number = 500,
+  pageSize: number = 50,
   includeHidden: boolean = false
 ): Promise<WallpaperMetadata[]> {
   return cached(
@@ -153,14 +153,14 @@ export async function getAllWallpapersServer(
           .orderBy("updatedAt", "desc")
           .limit(pageSize);
         if (!includeHidden) {
-          // Post-filter published status and soft-delete to avoid
-          // needing composite indexes. `visible` is legacy.
+          query = query
+            .where("published", "==", true)
+            .where("deleted", "!=", true);
         }
         const snap = await query.get();
         const list: WallpaperMetadata[] = [];
         snap.forEach((d) => {
           const w = normalizeWallpaper(d.id, d.data() ?? {});
-          if (!includeHidden && (w.visible === false || w.published === false || w.deleted)) return;
           list.push(w);
         });
         return list;
@@ -176,7 +176,7 @@ export async function getAllWallpapersServer(
 }
 
 export async function getFeaturedWallpapersServer(
-  pageSize: number = 200
+  pageSize: number = 24
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:featured:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -185,15 +185,13 @@ export async function getFeaturedWallpapersServer(
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
         .where("featured", "==", true)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .orderBy("updatedAt", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted || !w.published) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list;
     } catch (err) {
       console.warn(
@@ -206,7 +204,7 @@ export async function getFeaturedWallpapersServer(
 }
 
 export async function getTrendingWallpapersServer(
-  pageSize: number = 200
+  pageSize: number = 24
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:trending:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -215,15 +213,13 @@ export async function getTrendingWallpapersServer(
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
         .where("trending", "==", true)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .orderBy("updatedAt", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted || !w.published) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list;
     } catch (err) {
       console.warn(
@@ -237,7 +233,7 @@ export async function getTrendingWallpapersServer(
 
 export async function getWallpapersByCategoryServer(
   categoryId: string,
-  pageSize: number = 200
+  pageSize: number = 50
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:category:${categoryId}:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -246,15 +242,13 @@ export async function getWallpapersByCategoryServer(
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
         .where("categoryId", "==", categoryId)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .orderBy("updatedAt", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted || !w.published) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list;
     } catch (err) {
       console.warn(
@@ -296,14 +290,15 @@ export async function getRelatedWallpapersServer(
         const snap = await admin
           .collection(COLLECTIONS.WALLPAPERS)
           .where("categoryId", "==", categoryId)
-          .where("visible", "!=", false)
+          .where("published", "==", true)
+          .where("deleted", "!=", true)
           .orderBy("downloads", "desc")
           .limit(pageSize + 1)
           .get();
         const list: WallpaperMetadata[] = [];
         snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
         return list
-          .filter((w) => w.visible !== false && w.published !== false && !w.deleted)
+          .filter((w) => w.visible !== false)
           .filter((w) => w.slug !== excludeSlug)
           .slice(0, pageSize);
       } catch (err) {
@@ -321,12 +316,10 @@ export async function getRelatedWallpapersServer(
  * Most-downloaded wallpapers across the whole catalogue.
  *
  * Uses composite index:
- *   `visible ASC, downloads DESC, __name__ DESC`
+ *   `published ASC, deleted ASC, downloads DESC, __name__ DESC`
  *
- * The `!= false` filter is a range constraint, so `visible`
- * must be the leading index field. Backed by the denormalized
- * `wallpapers/{slug}.downloads` field updated by
- * `incrementDownloadCount` in `lib/firestore.ts`.
+ * Backed by the denormalized `wallpapers/{slug}.downloads` field
+ * updated by `incrementDownloadCount` in `lib/firestore.ts`.
  */
 export async function getPopularWallpapersServer(
   pageSize: number = 24
@@ -337,13 +330,14 @@ export async function getPopularWallpapersServer(
     try {
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
-        .where("visible", "!=", false)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .orderBy("downloads", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
       snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
-      return list.filter((w) => w.visible !== false && w.published !== false && !w.deleted);
+      return list.filter((w) => w.visible !== false);
     } catch (err) {
       console.warn(
         "[wallpaper-store-server] getPopularWallpapersServer failed:",
@@ -358,14 +352,12 @@ export async function getPopularWallpapersServer(
  * Most-viewed wallpapers.
  *
  * Uses composite index:
- *   `visible ASC, views DESC, __name__ DESC`
+ *   `published ASC, deleted ASC, views DESC, __name__ DESC`
  *
- * The `!= false` filter is a range constraint, so `visible`
- * must be the leading index field. Backed by the denormalized
- * `wallpapers/{slug}.views` field.
+ * Backed by the denormalized `wallpapers/{slug}.views` field.
  */
 export async function getMostViewedWallpapersServer(
-  pageSize: number = 200
+  pageSize: number = 24
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:most-viewed:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -373,16 +365,13 @@ export async function getMostViewedWallpapersServer(
     try {
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
-        .where("visible", "!=", false)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .orderBy("views", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted || !w.published) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list.filter((w) => w.visible !== false);
     } catch (err) {
       console.warn(
@@ -398,10 +387,10 @@ export async function getMostViewedWallpapersServer(
  * Published wallpapers, sorted by most-recently updated.
  *
  * Uses the composite index:
- *   `published ASC, updatedAt DESC`
+ *   `published ASC, deleted ASC, updatedAt DESC, __name__ DESC`
  */
 export async function getPublishedWallpapersServer(
-  pageSize: number = 200
+  pageSize: number = 50
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:published:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -415,11 +404,7 @@ export async function getPublishedWallpapersServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list;
     } catch (err) {
       console.warn(
@@ -435,10 +420,10 @@ export async function getPublishedWallpapersServer(
  * Drafts (unpublished) wallpapers, for the admin Drafts tab.
  *
  * Uses the composite index:
- *   `published ASC, updatedAt DESC`
+ *   `published ASC, deleted ASC, updatedAt DESC, __name__ DESC`
  */
 export async function getDraftsServer(
-  pageSize: number = 200
+  pageSize: number = 50
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:drafts:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -452,11 +437,7 @@ export async function getDraftsServer(
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list;
     } catch (err) {
       console.warn(
@@ -470,7 +451,7 @@ export async function getDraftsServer(
 
 export async function getWallpapersByTagServer(
   tag: string,
-  pageSize: number = 200
+  pageSize: number = 50
 ): Promise<WallpaperMetadata[]> {
   return cached(`wallpapers:tag:${tag}:${pageSize}`, async () => {
     const admin = getAdminDb();
@@ -478,16 +459,14 @@ export async function getWallpapersByTagServer(
     try {
       const snap = await admin
         .collection(COLLECTIONS.WALLPAPERS)
+        .where("published", "==", true)
+        .where("deleted", "!=", true)
         .where("tags", "array-contains", tag)
         .orderBy("updatedAt", "desc")
         .limit(pageSize)
         .get();
       const list: WallpaperMetadata[] = [];
-      snap.forEach((d) => {
-        const w = normalizeWallpaper(d.id, d.data() ?? {});
-        if (w.deleted || !w.published) return;
-        list.push(w);
-      });
+      snap.forEach((d) => list.push(normalizeWallpaper(d.id, d.data() ?? {})));
       return list;
     } catch (err) {
       console.warn(
@@ -553,6 +532,7 @@ export async function searchWallpapersServer(
         if (cleaned) {
           const prefixSnap = await admin
             .collection(COLLECTIONS.WALLPAPERS)
+            .where("published", "==", true)
             .where("titleLower", ">=", lower)
             .where("titleLower", "<", lower + "\uf8ff")
             .limit(pageSize)
@@ -562,6 +542,8 @@ export async function searchWallpapersServer(
           if (!/\s/.test(cleaned)) {
             const slugSnap = await admin
               .collection(COLLECTIONS.WALLPAPERS)
+              .where("published", "==", true)
+              .where("deleted", "!=", true)
               .where("slug", "==", cleaned.toLowerCase())
               .limit(1)
               .get();
@@ -572,6 +554,8 @@ export async function searchWallpapersServer(
         if (tag) {
           const tagSnap = await admin
             .collection(COLLECTIONS.WALLPAPERS)
+            .where("published", "==", true)
+            .where("deleted", "!=", true)
             .where("tags", "array-contains", tag)
             .orderBy("updatedAt", "desc")
             .limit(pageSize)
@@ -583,6 +567,8 @@ export async function searchWallpapersServer(
           const catSnap = await admin
             .collection(COLLECTIONS.WALLPAPERS)
             .where("categoryId", "==", categoryId)
+            .where("published", "==", true)
+            .where("deleted", "!=", true)
             .orderBy("updatedAt", "desc")
             .limit(pageSize)
             .get();
@@ -790,7 +776,7 @@ export async function getRecentEditsServer(
   }
   // Fallback: per-slug N+1
   try {
-    const all = await getAllWallpapersServer(500);
+    const all = await getAllWallpapersServer(2000);
     if (all.length === 0) return [];
     const latest: WallpaperEdit[] = [];
     await Promise.all(

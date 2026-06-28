@@ -32,6 +32,7 @@ import sharp from "sharp";
 import { Timestamp } from "firebase-admin/firestore";
 
 import { adminDb } from "./firebase-admin";
+import { getNextWallpaperIdAdmin, initWallpaperCounterIfMissing } from "../lib/wallpaper-id";
 import { COLLECTIONS } from "../lib/firestore-types";
 import { withResolutionTag } from "../lib/resolution-tiers";
 
@@ -143,20 +144,6 @@ function filterFiles(
   return { selected: files, skipped: [] };
 }
 
-async function getNextId(): Promise<number> {
-  const snap = await adminDb()
-    .collection(COLLECTIONS.WALLPAPERS)
-    .orderBy("id", "desc")
-    .limit(1)
-    .get();
-  let max = 0;
-  snap.forEach((d) => {
-    const id = Number(d.data().id);
-    if (!isNaN(id)) max = Math.max(max, id);
-  });
-  return max + 1;
-}
-
 /* ── Main ── */
 
 interface Summary {
@@ -257,12 +244,15 @@ ${C.bold}Credentials${C.reset}
     });
   }
 
-  let nextId = dryRun ? 1 : await getNextId();
   const summary: Summary = { total: files.length, inserted: 0, skipped: 0, failed: 0 };
+
+  if (!dryRun) {
+    await initWallpaperCounterIfMissing(adminDb());
+  }
 
   for (const file of files) {
     const filePath = join(PUBLIC_DIR, file);
-    const id = String(nextId++);
+    const id = dryRun ? String(summary.inserted + 1) : await getNextWallpaperIdAdmin(adminDb());
     const now = Timestamp.now();
 
     try {

@@ -13,7 +13,12 @@ import type { WallpaperMetadata } from "./firestore-types";
    ========================================================= */
 
 function gcd(a: number, b: number): number {
-  return b === 0 ? a : gcd(b, a % b);
+  while (b !== 0) {
+    const t = b;
+    b = a % b;
+    a = t;
+  }
+  return a;
 }
 
 export function formatAspectRatio(width: number, height: number): string | undefined {
@@ -108,5 +113,6 @@ export function normalizeWallpaper(
     updatedBy: typeof data.updatedBy === "string" ? data.updatedBy : typeof data.lastEditedBy === "string" ? data.lastEditedBy as string : undefined,
     createdAt,
     updatedAt,
+    lastEditedAt: coerceDate(data.lastEditedAt),
   };
 }

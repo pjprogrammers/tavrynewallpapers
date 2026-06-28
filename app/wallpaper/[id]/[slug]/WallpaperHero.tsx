@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { Tag } from "lucide-react";
 import WallpaperActions from "./WallpaperActions";
 import WallpaperImageLoading from "./WallpaperImageLoading";
@@ -12,26 +12,21 @@ import EditWallpaperButton from "../../../components/EditWallpaperButton";
 import { useWallpaperContext } from "./WallpaperEditProvider";
 import { getCategoryById } from "../../../lib/wallpapers";
 import { resolveImageUrl } from "@/lib/wallpaper-image";
-import { listTags } from "@/lib/tag-store";
 
 export function WallpaperHero({
   category,
   downloadOptions,
+  tags,
 }: {
   category: ReturnType<typeof getCategoryById> | null;
   downloadOptions: Array<{ name: string; resolution: string; device: string; icon: string }>;
+  tags: Array<{ id: string; name: string }>;
 }) {
   const { wallpaper: merged } = useWallpaperContext();
-  const [tagNameMap, setTagNameMap] = useState<Record<string, string>>({});
-  useEffect(() => {
-    listTags()
-      .then((tags) => {
-        const map: Record<string, string> = {};
-        tags.forEach((t) => { map[t.id] = t.name; });
-        setTagNameMap(map);
-      })
-      .catch(() => {});
-  }, []);
+  const tagNameMap: Record<string, string> = {};
+  for (const t of tags) {
+    tagNameMap[t.id] = t.name;
+  }
   return (
     <article
       className="wallpaper-hero"
@@ -175,18 +170,16 @@ export function WallpaperHero({
   );
 }
 
-export function WallpaperMobileTags() {
+export function WallpaperMobileTags({
+  tags,
+}: {
+  tags: Array<{ id: string; name: string }>;
+}) {
   const { wallpaper: merged } = useWallpaperContext();
-  const [tagNameMap, setTagNameMap] = useState<Record<string, string>>({});
-  useEffect(() => {
-    listTags()
-      .then((tags) => {
-        const map: Record<string, string> = {};
-        tags.forEach((t) => { map[t.id] = t.name; });
-        setTagNameMap(map);
-      })
-      .catch(() => {});
-  }, []);
+  const tagNameMap: Record<string, string> = {};
+  for (const t of tags) {
+    tagNameMap[t.id] = t.name;
+  }
   return (
     <section className="wallpaper-mobile-tags" aria-label="Wallpaper tags">
       <div className="tags-header">

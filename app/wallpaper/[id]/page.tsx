@@ -3,6 +3,8 @@ import { getWallpaperById as getStaticWallpaperById, getWallpaperBySlug as getSt
 import { getWallpaperByIdServer, getWallpaperBySlugServer } from "@/lib/wallpaper-store-server";
 import { createSlug } from "@/lib/slug";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
 interface WallpaperIdRedirectProps {
   params: Promise<{ id: string }>;
 }

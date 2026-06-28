@@ -2,14 +2,11 @@
 
 import { Eye, Download, Heart, Clock, MousePointer, EyeOff } from "lucide-react";
 import { Wallpaper } from "../../../lib/wallpapers";
+import { formatNumber } from "@/lib/format";
 
 interface WallpaperStatsProps {
   wallpaper: Wallpaper;
 }
-
-const formatNumber = (num: number): string => {
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-};
 
 export default function WallpaperStats({ wallpaper }: WallpaperStatsProps) {
   return (

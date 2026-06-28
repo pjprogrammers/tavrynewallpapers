@@ -27,8 +27,9 @@ type CacheEntry<T> = {
   expiresAt: number;
 };
 
-const DEFAULT_TTL_MS = 5_000; // 5 seconds — enough to dedupe within a single request
+const DEFAULT_TTL_MS = 30_000; // 30 seconds — enough to dedupe within a single request
 
+const MAX_ENTRIES = 500;
 const store = new Map<string, CacheEntry<unknown>>();
 
 /**
@@ -47,6 +48,10 @@ export async function cached<T>(
   }
   const value = await factory();
   store.set(key, { value, expiresAt: now + ttlMs });
+  if (store.size > MAX_ENTRIES) {
+    const oldest = store.keys().next().value;
+    if (oldest !== undefined) store.delete(oldest);
+  }
   return value;
 }
 

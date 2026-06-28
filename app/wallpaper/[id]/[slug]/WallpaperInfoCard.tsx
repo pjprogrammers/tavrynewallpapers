@@ -4,6 +4,7 @@ import { Info, Download, Eye } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getCategoryById } from "@/lib/category-store";
 import type { CategoryDoc } from "@/lib/firestore-types";
+import { formatNumber } from "@/lib/format";
 
 interface WallpaperInfoCardProps {
   wallpaperId: string;
@@ -13,10 +14,6 @@ interface WallpaperInfoCardProps {
   staticViews: number;
   staticDownloads: number;
 }
-
-const formatNumber = (num: number): string => {
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-};
 
 export default function WallpaperInfoCard({
   wallpaperId,

@@ -37,8 +37,8 @@ service cloud.firestore {
        👤 USERS COLLECTION
     ========================================================= */
     match /users/{userId} {
-      // Anyone can read user profiles (for display)
-      allow read: if true;
+      // Authenticated users can read their own profile; admins can read all
+      allow read: if isOwner(userId) || isAdmin();
 
       // Users can update their own profile — only whitelisted fields allowed
       allow update: if isOwner(userId)
@@ -109,12 +109,16 @@ service cloud.firestore {
         ])
       );
 
-      // Authenticated users can toggle the favorites counter
-      // (used by the toggleFavorite transaction).
+      // Authenticated users can toggle the favorites counter (max ±1)
       allow update: if isAuthenticated()
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           'favorites'
-        ]);
+        ])
+        && (
+          request.resource.data.favorites == resource.data.favorites + 1
+          ||
+          request.resource.data.favorites == resource.data.favorites - 1
+        );
 
       // Moderators and admins can update any wallpaper.
       // Locked fields cannot be changed.

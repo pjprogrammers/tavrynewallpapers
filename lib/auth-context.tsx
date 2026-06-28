@@ -55,7 +55,6 @@ export const AuthProvider = ({
         authInstance,
         (currentUser) => {
           setUser(currentUser);
-
           setLoading(false);
         }
       );
@@ -70,6 +69,25 @@ export const AuthProvider = ({
       return;
     }
   }, []);
+
+  /**
+   * Sync Firestore user document when auth state changes
+   */
+  useEffect(() => {
+    if (user && !loading) {
+      const syncUser = async () => {
+        const { createOrUpdateUser } = await import("./firestore");
+        const provider = user.providerData[0]?.providerId || "password";
+        await createOrUpdateUser(user.uid, {
+          displayName: user.displayName || "",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          provider,
+        });
+      };
+      syncUser();
+    }
+  }, [user, loading]);
 
   /**
    * Prevent rendering app before auth finishes loading

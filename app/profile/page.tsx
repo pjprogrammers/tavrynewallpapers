@@ -115,9 +115,7 @@ export default function ProfilePage() {
     if (!user) return;
     try {
       setAvatarUrl(newPhotoUrl);
-      // Update both Auth and Firestore
       await updateAuthProfile(user, { photoURL: newPhotoUrl });
-      await updateUserFirestoreProfile(user.uid, { photoURL: newPhotoUrl });
       router.refresh();
     } catch (err) {
       console.error("[Profile] Failed to update avatar:", err);
@@ -189,10 +187,13 @@ export default function ProfilePage() {
     setUploadingAvatar(true);
     setError(null);
     try {
-      // Rehost external URL through Cloudinary first
+      const token = await user?.getIdToken();
       const response = await fetch("/api/reupload-image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ imageUrl: urlInput.trim() }),
       });
 
@@ -216,12 +217,14 @@ export default function ProfilePage() {
   };
   // ----------------------------------------------------------------
 
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+
   const displayAvatarUrl = useMemo(() => {
+    if (avatarLoadError) return "/avatars_preset/aiden.svg";
     if (avatarUrl) return avatarUrl;
     if (user?.photoURL) return user.photoURL;
-    // Default fallback to local avatar
     return "/avatars_preset/aiden.svg";
-  }, [avatarUrl, user?.photoURL]);
+  }, [avatarUrl, user?.photoURL, avatarLoadError]);
 
   const memberSince = useMemo(() => {
     const created = (user as any)?.metadata?.creationTime;
@@ -277,11 +280,6 @@ export default function ProfilePage() {
         setError(result.error);
         return;
       }
-
-      await updateUserFirestoreProfile(user!.uid, {
-        displayName: name,
-        photoURL: formData.photoURL.trim() || undefined,
-      });
 
       const { doc, setDoc } = await import("firebase/firestore");
       const { getDB } = await import("@/lib/firebase");
@@ -398,6 +396,7 @@ export default function ProfilePage() {
                 className="profile-avatar"
                 priority
                 unoptimized
+                onError={() => setAvatarLoadError(true)}
               />
               <button
                 onClick={() => setShowAvatarModal(true)}

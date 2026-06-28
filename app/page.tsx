@@ -19,6 +19,8 @@ import {
 } from "@/lib/wallpaper-store-server";
 import type { WallpaperMetadata } from "@/lib/firestore-types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
 /**
  * Map a Firestore `WallpaperMetadata` doc to the shape consumed by
  * client components, falling back to safe defaults so an admin edit
@@ -109,6 +111,15 @@ export default async function Home() {
     : [];
   const totalCount = allWallpapers.length;
 
+  const categoryCounts = allWallpapers.reduce<Record<string, number>>((acc, w) => {
+    if (w.categoryId) acc[w.categoryId] = (acc[w.categoryId] || 0) + 1;
+    return acc;
+  }, {});
+  const trendingCategoryIds = Object.entries(categoryCounts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 7)
+    .map(([id]) => id);
+
   // JSON-LD schemas for the homepage
   const homepageSchemas = [
     {
@@ -170,16 +181,30 @@ export default async function Home() {
             <div className="hero-categories">
               <h2 className="hero-categories-title">Trending Categories</h2>
               <div className="hero-category-pills">
-                {categories.slice(0, 7).map((category, index) => (
-                  <Link
-                    href={`/categories/${category.id}`}
-                    key={category.id}
-                    className="hero-category-pill"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    {category.name}
-                  </Link>
-                ))}
+                {trendingCategoryIds.length > 0
+                  ? trendingCategoryIds.map((id, index) => {
+                      const category = categories.find(c => c.id === id) || { id, name: id.charAt(0).toUpperCase() + id.slice(1) };
+                      return (
+                        <Link
+                          href={`/categories/${category.id}`}
+                          key={category.id}
+                          className="hero-category-pill"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
+                          {category.name}
+                        </Link>
+                      );
+                    })
+                  : categories.slice(0, 7).map((category, index) => (
+                      <Link
+                        href={`/categories/${category.id}`}
+                        key={category.id}
+                        className="hero-category-pill"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
+                        {category.name}
+                      </Link>
+                    ))}
                 <Link href="/categories/all" className="hero-category-pill view-all animate-pulse-subtle">
                   View All
                   <ChevronRight size={14} />

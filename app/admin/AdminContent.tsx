@@ -49,6 +49,7 @@ import {
 } from "@/lib/users";
 import type { WallpaperMetadata, WallpaperEdit } from "@/lib/firestore-types";
 import { resolveThumbnailUrl } from "@/lib/wallpaper-image";
+import { fmtCompact } from "@/lib/format";
 
 type Tab = "overview" | "team" | "wallpapers" | "edits" | "drafts";
 
@@ -58,12 +59,6 @@ interface OverviewData {
   wallpapers: WallpaperMetadata[];
   drafts: WallpaperMetadata[];
   recentEdits: WallpaperEdit[];
-}
-
-function fmtCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
 }
 
 function relativeTime(iso: string | Date): string {
@@ -273,8 +268,8 @@ export default function AdminContent() {
         await Promise.all([
           getAdminsFromFirestore(100),
           getModeratorsFromFirestore(100),
-          getAllWallpapersFromFirestore(200),
-          getDraftsFromFirestore(200),
+          getAllWallpapersFromFirestore(80),
+          getDraftsFromFirestore(50),
           getRecentEditsFromFirestore(30),
         ]);
       setData({ admins, moderators, wallpapers, drafts, recentEdits });
@@ -406,11 +401,14 @@ export default function AdminContent() {
 
   const { s, drafts, edits, admins, moderators } = tabMeta;
 
-  const totalViews = s.reduce((a, w) => a + (w.views ?? 0), 0);
-  const totalDownloads = s.reduce((a, w) => a + (w.downloads ?? 0), 0);
-  const totalFavorites = s.reduce((a, w) => a + (w.favorites ?? 0), 0);
-  const featuredCount = s.filter((w) => w.featured).length;
-  const trendingCount = s.filter((w) => w.trending).length;
+  let totalViews = 0, totalDownloads = 0, totalFavorites = 0, featuredCount = 0, trendingCount = 0;
+  for (const w of s) {
+    totalViews += w.views ?? 0;
+    totalDownloads += w.downloads ?? 0;
+    totalFavorites += w.favorites ?? 0;
+    if (w.featured) featuredCount++;
+    if (w.trending) trendingCount++;
+  }
   const edits24h = edits.filter((e) => {
     const t = editTimestampMs(e.editedAt);
     return Date.now() - t < 86400000;

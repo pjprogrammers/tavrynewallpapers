@@ -9,7 +9,7 @@ const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
 
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 export const metadata: Metadata = {
   title: `Categories | ${SITE_NAME}`,
   description: `Browse all wallpaper categories on ${SITE_NAME}. Find the perfect wallpaper for your style — 4K, HD, and 8K anime, gaming, cyberpunk, nature, and more.`,

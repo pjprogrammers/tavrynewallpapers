@@ -12,10 +12,12 @@ import {
   getTagById,
   type Wallpaper as StaticWallpaper,
 } from "../../../lib/wallpapers";
+import { cached } from "@/lib/cache";
 import {
   getWallpaperByIdServer,
   getRelatedWallpapersServer,
   getTrendingWallpapersServer,
+  listTagsServer,
 } from "@/lib/wallpaper-store-server";
 import type { WallpaperMetadata } from "@/lib/firestore-types";
 import {
@@ -23,6 +25,8 @@ import {
   toAbsoluteImageUrl,
 } from "@/lib/wallpaper-image";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
 const SITE_URL = "https://tavrynewallpapers.vercel.app";
 const SITE_NAME = "Tavryne Wallpapers";
 
@@ -50,10 +54,16 @@ function toMetadata(id: string, w: StaticWallpaper): WallpaperMetadata {
   };
 }
 
+async function getWallpaper(id: string) {
+  return cached(`wallpaper-detail-${id}`, () =>
+    getWallpaperByIdServer(id, { includeUnpublished: true }),
+  );
+}
+
 export async function generateMetadata({ params }: WallpaperPageProps): Promise<Metadata> {
   const { id, slug } = await params;
 
-  const firestore = await getWallpaperByIdServer(id, { includeUnpublished: true });
+  const firestore = await getWallpaper(id);
   const wallpaper: WallpaperMetadata | null =
     firestore ??
     (() => {
@@ -152,7 +162,7 @@ export async function generateMetadata({ params }: WallpaperPageProps): Promise<
 }
 
 async function buildWallpaperJsonLd(id: string) {
-  const firestore = await getWallpaperByIdServer(id, { includeUnpublished: true });
+  const firestore = await getWallpaper(id);
   const wallpaper: WallpaperMetadata | null =
     firestore ??
     (() => {
@@ -248,7 +258,7 @@ async function buildWallpaperJsonLd(id: string) {
 export default async function WallpaperPage({ params }: WallpaperPageProps) {
   const { id, slug } = await params;
 
-  const fromFs = await getWallpaperByIdServer(id, { includeUnpublished: true });
+  const fromFs = await getWallpaper(id);
   if (fromFs && (fromFs.deleted || fromFs.published === false)) return notFound();
   const staticW = getStaticWallpaperById(id);
   if (!fromFs && !staticW) return notFound();
@@ -261,6 +271,8 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
   }
 
   const category = getCategoryById(wallpaper.categoryId);
+
+  const tags = await listTagsServer().catch(() => []);
 
   const [fsRelated, fsTrending] = await Promise.all([
     getRelatedWallpapersServer(wallpaper.categoryId, wallpaper.slug, 8).catch(
@@ -345,9 +357,9 @@ export default async function WallpaperPage({ params }: WallpaperPageProps) {
 
         <main role="main" id="main-content">
           <WallpaperEditProvider slug={wallpaper.slug} staticWallpaper={wallpaper}>
-            <WallpaperHero category={category ?? null} downloadOptions={downloadOptions} />
+            <WallpaperHero category={category ?? null} downloadOptions={downloadOptions} tags={tags} />
 
-            <WallpaperMobileTags />
+            <WallpaperMobileTags tags={tags} />
           </WallpaperEditProvider>
 
           {recommendedWallpapers.length > 0 && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   Loader2,
@@ -18,12 +18,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useUserRoles } from "@/lib/use-user-roles";
 import { getAllWallpapersFromFirestore } from "@/lib/wallpaper-store";
 import type { WallpaperMetadata } from "@/lib/firestore-types";
+import { fmtCompact } from "@/lib/format";
 
-function fmtCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
+export const dynamic = "force-dynamic";
 
 interface Stats {
   total: number;
@@ -55,26 +52,32 @@ export default function AdminAnalyticsPage() {
     if (!authLoading && !rolesLoading && isAdmin) fetch();
   }, [authLoading, rolesLoading, isAdmin, fetch]);
 
-  const stats: Stats = {
-    total: wallpapers.filter((w) => !w.deleted).length,
-    views: wallpapers.reduce((s, w) => s + (w.views ?? 0), 0),
-    downloads: wallpapers.reduce((s, w) => s + (w.downloads ?? 0), 0),
-    favorites: wallpapers.reduce((s, w) => s + (w.favorites ?? 0), 0),
-    featured: wallpapers.filter((w) => w.featured && !w.deleted).length,
-    trending: wallpapers.filter((w) => w.trending && !w.deleted).length,
-    draft: wallpapers.filter((w) => !w.published && !w.deleted).length,
-    hidden: wallpapers.filter((w) => !w.visible && !w.deleted).length,
-  };
+  const { stats, topViewed, topDownloaded } = useMemo(() => {
+    let total = 0, views = 0, downloads = 0, favorites = 0;
+    let featured = 0, trending = 0, draft = 0, hidden = 0;
 
-  const topViewed = [...wallpapers]
-    .filter((w) => !w.deleted)
-    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
-    .slice(0, 10);
+    for (const w of wallpapers) {
+      if (w.deleted) continue;
+      total++;
+      views += w.views ?? 0;
+      downloads += w.downloads ?? 0;
+      favorites += w.favorites ?? 0;
+      if (w.featured) featured++;
+      if (w.trending) trending++;
+      if (!w.published) draft++;
+      if (!w.visible) hidden++;
+    }
 
-  const topDownloaded = [...wallpapers]
-    .filter((w) => !w.deleted)
-    .sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0))
-    .slice(0, 10);
+    const active = wallpapers.filter((w) => !w.deleted);
+    const topViewed = [...active].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 10);
+    const topDownloaded = [...active].sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0)).slice(0, 10);
+
+    return {
+      stats: { total, views, downloads, favorites, featured, trending, draft, hidden },
+      topViewed,
+      topDownloaded,
+    };
+  }, [wallpapers]);
 
   if (authLoading || rolesLoading) {
     return (
@@ -115,7 +118,6 @@ export default function AdminAnalyticsPage() {
               { label: "Views", value: fmtCompact(stats.views), icon: Eye, color: "from-blue-500 to-blue-600" },
               { label: "Downloads", value: fmtCompact(stats.downloads), icon: Download, color: "from-violet-500 to-violet-600" },
               { label: "Favorites", value: fmtCompact(stats.favorites), icon: Heart, color: "from-rose-500 to-rose-600" },
-              { label: "Favorites", value: fmtCompact(stats.favorites), icon: Bookmark, color: "from-pink-500 to-pink-600" },
               { label: "Featured", value: stats.featured, icon: TrendingUp, color: "from-amber-500 to-amber-600" },
               { label: "Drafts", value: stats.draft, icon: ImageIcon, color: "from-amber-500 to-amber-600" },
               { label: "Hidden", value: stats.hidden, icon: Eye, color: "from-zinc-500 to-zinc-600" },

@@ -17,6 +17,7 @@ import { getCategoryById } from "@/lib/category-store";
 import type { CategoryDoc } from "@/lib/firestore-types";
 import { getRecencyBadge } from "@/lib/wallpaper-time";
 import { resolveImageUrl, resolveThumbnailUrl } from "@/lib/wallpaper-image";
+import { fmtCompact } from "@/lib/format";
 
 interface WallpaperCardProps {
   wallpaper?: Wallpaper;
@@ -32,12 +33,6 @@ interface WallpaperCardProps {
   priority?: boolean;
   className?: string;
 }
-
-const formatNumber = (num: number): string => {
-  if (num >= 1000000) return Math.floor(num / 1000000) + "M";
-  if (num >= 1000) return Math.floor(num / 1000) + "K";
-  return num.toString();
-};
 
 const WallpaperCard = ({
   wallpaper,
@@ -218,15 +213,15 @@ const WallpaperCard = ({
                 <div className="wallpaper-card-v2-stats-row">
                   <span className="wallpaper-card-v2-stat-item">
                     <Eye size={14} />
-                    <span>{formatNumber(wallpaperData.views || 0)}</span>
+                    <span>{fmtCompact(wallpaperData.views || 0)}</span>
                   </span>
                   <span className="wallpaper-card-v2-stat-item">
                     <Download size={14} />
-                    <span>{formatNumber(wallpaperData.downloads || 0)}</span>
+                    <span>{fmtCompact(wallpaperData.downloads || 0)}</span>
                   </span>
                   <span className="wallpaper-card-v2-stat-item">
                     <Heart size={14} fill={isFavorited ? "currentColor" : "none"} />
-                    <span>{formatNumber(wallpaperData.favorites || 0)}</span>
+                    <span>{fmtCompact(wallpaperData.favorites || 0)}</span>
                   </span>
                 </div>
               )}

@@ -20,7 +20,7 @@ const SITE_NAME = "Tavryne Wallpapers";
 // Live Firestore data — render at request time so the build workers
 // don't pre-render empty pages (workers can't reach Firestore).
 export const dynamic = "force-dynamic";
-
+export const revalidate = 60;
 interface SearchPageProps {
   searchParams: Promise<{ q?: string }>;
 }
