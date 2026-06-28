@@ -89,7 +89,7 @@ function titleFromUrl(url: string, fallback: string): string {
   );
 }
 
-const CONCURRENCY = 5;
+const CONCURRENCY = 3;
 const MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024;
 const PREVIEW_ROW_LIMIT = 10;
 

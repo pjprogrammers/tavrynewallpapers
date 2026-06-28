@@ -171,87 +171,83 @@ export async function POST(request: NextRequest) {
     }
 
     const results: BulkImportResult[] = [];
-    const WRITE_CONCURRENCY = 20;
     const now = FieldValue.serverTimestamp();
 
     const seenUrls = new Set<string>();
 
-    for (let i = 0; i < items.length; i += WRITE_CONCURRENCY) {
-      const batch = items.slice(i, i + WRITE_CONCURRENCY);
-      const batchResults = await Promise.all(
-        batch.map(async (item, idx) => {
-          try {
-            // Intra-batch dedup — avoids Firestore reads for duplicates within this batch
-            if (seenUrls.has(item.imageUrl)) {
-              return { url: item.imageUrl, status: "duplicate" as const };
-            }
-            seenUrls.add(item.imageUrl);
+    for (const item of items) {
+      try {
+        if (seenUrls.has(item.imageUrl)) {
+          results.push({ url: item.imageUrl, status: "duplicate" });
+          continue;
+        }
+        seenUrls.add(item.imageUrl);
 
-            const existing = await adminDb
-              .collection("wallpapers")
-              .where("imageUrl", "==", item.imageUrl)
-              .limit(1)
-              .get();
+        const existing = await adminDb
+          .collection("wallpapers")
+          .where("imageUrl", "==", item.imageUrl)
+          .limit(1)
+          .get();
 
-            if (!existing.empty) return { url: item.imageUrl, status: "duplicate" as const };
+        if (!existing.empty) {
+          results.push({ url: item.imageUrl, status: "duplicate" });
+          continue;
+        }
 
-            const id = await getNextWallpaperIdAdmin(adminDb);
-            const title = item.title || urlToTitle(item.imageUrl) || `Wallpaper ${id}`;
+        const id = await getNextWallpaperIdAdmin(adminDb);
+        const title = item.title || urlToTitle(item.imageUrl) || `Wallpaper ${id}`;
 
-            const data: Record<string, unknown> = {
-              id,
-              slug: id,
-              title,
-              description: item.description || "",
-              categoryId: item.categoryId,
-              tags: Array.isArray(item.tags) ? item.tags : [],
-              imageUrl: item.imageUrl,
-              width: item.width > 0 ? item.width : null,
-              height: item.height > 0 ? item.height : null,
-              resolution: item.width > 0 && item.height > 0 ? `${item.width}x${item.height}` : null,
-              storageProvider: detectStorageProvider(item.imageUrl),
-              published: true,
-              visible: true,
-              featured: false,
-              trending: false,
-              filename: urlToFilename(item.imageUrl),
-              thumbnailUrl: item.thumbnailUrl ?? item.imageUrl,
-              uploaderId: uid,
-              views: 0,
-              impressions: 0,
-              clicks: 0,
-              downloads: 0,
-              favorites: 0,
-              deleted: false,
-              titleLower: title.toLowerCase(),
-              lastEditedBy: uid,
-              lastEditedAt: now,
-              createdBy: uid,
-              updatedBy: uid,
-              uploadDate: new Date().toISOString(),
-              createdAt: now,
-              updatedAt: now,
-            };
+        const data: Record<string, unknown> = {
+          id,
+          slug: id,
+          title,
+          description: item.description || "",
+          categoryId: item.categoryId,
+          tags: Array.isArray(item.tags) ? item.tags : [],
+          imageUrl: item.imageUrl,
+          width: item.width > 0 ? item.width : null,
+          height: item.height > 0 ? item.height : null,
+          resolution: item.width > 0 && item.height > 0 ? `${item.width}x${item.height}` : null,
+          storageProvider: detectStorageProvider(item.imageUrl),
+          published: true,
+          visible: true,
+          featured: false,
+          trending: false,
+          filename: urlToFilename(item.imageUrl),
+          thumbnailUrl: item.thumbnailUrl ?? item.imageUrl,
+          uploaderId: uid,
+          views: 0,
+          impressions: 0,
+          clicks: 0,
+          downloads: 0,
+          favorites: 0,
+          deleted: false,
+          titleLower: title.toLowerCase(),
+          lastEditedBy: uid,
+          lastEditedAt: now,
+          createdBy: uid,
+          updatedBy: uid,
+          uploadDate: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
+        };
 
-            if (item.width > 0 && item.height > 0) {
-              data.aspectRatio = formatAspectRatio(item.width, item.height);
-              data.orientation = deriveOrientation(item.width, item.height);
-              data.tags = withResolutionTag(data.tags as string[], item.width, item.height);
-            } else {
-              data.aspectRatio = null;
-              data.orientation = null;
-            }
+        if (item.width > 0 && item.height > 0) {
+          data.aspectRatio = formatAspectRatio(item.width, item.height);
+          data.orientation = deriveOrientation(item.width, item.height);
+          data.tags = withResolutionTag(data.tags as string[], item.width, item.height);
+        } else {
+          data.aspectRatio = null;
+          data.orientation = null;
+        }
 
-            await adminDb.collection("wallpapers").doc(id).set(data);
+        await adminDb.collection("wallpapers").doc(id).set(data);
 
-            return { url: item.imageUrl, status: "ok" as const, id, title };
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { url: item.imageUrl, status: "error" as const, error: msg };
-          }
-        })
-      );
-      results.push(...batchResults);
+        results.push({ url: item.imageUrl, status: "ok", id, title });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        results.push({ url: item.imageUrl, status: "error", error: msg });
+      }
     }
 
     resetIndex();
