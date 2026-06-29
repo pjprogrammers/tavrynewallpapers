@@ -571,6 +571,7 @@ export async function searchWallpapersServer(
         };
 
         if (cleaned) {
+          // 1. Title prefix match
           const prefixSnap = await admin
             .collection(COLLECTIONS.WALLPAPERS)
             .where("published", "==", true)
@@ -580,6 +581,7 @@ export async function searchWallpapersServer(
             .get();
           add(prefixSnap);
 
+          // 2. Slug exact match (single-word queries)
           if (!/\s/.test(cleaned)) {
             const slugSnap = await admin
               .collection(COLLECTIONS.WALLPAPERS)
@@ -589,6 +591,72 @@ export async function searchWallpapersServer(
               .limit(1)
               .get();
             add(slugSnap);
+          }
+
+          // 3. Tag match — array-contains for each word + the full query
+          const tagTerms = [...new Set(
+            [lower, ...lower.split(/\s+/).filter(Boolean)]
+          )];
+          for (const term of tagTerms) {
+            try {
+              const tagSnap = await admin
+                .collection(COLLECTIONS.WALLPAPERS)
+                .where("published", "==", true)
+                .where("deleted", "!=", true)
+                .where("tags", "array-contains", term)
+                .orderBy("updatedAt", "desc")
+                .limit(pageSize)
+                .get();
+              add(tagSnap);
+            } catch {
+              // Tag index may not exist — skip gracefully
+            }
+          }
+
+          // 4. Category name lookup — if query matches a category, search by it
+          try {
+            const categories = await listCategoriesServer();
+            const matchedCat = categories.find(
+              (c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower
+            );
+            if (matchedCat) {
+              const catSnap = await admin
+                .collection(COLLECTIONS.WALLPAPERS)
+                .where("categoryId", "==", matchedCat.id)
+                .where("published", "==", true)
+                .where("deleted", "!=", true)
+                .orderBy("updatedAt", "desc")
+                .limit(pageSize)
+                .get();
+              add(catSnap);
+            }
+          } catch {
+            // Category lookup failed — non-critical
+          }
+
+          // 5. FlexSearch full-text search (covers descriptions + partial matches)
+          try {
+            const { searchIds } = await import("./search-index");
+            const flexIds = await searchIds(lower, pageSize * 2);
+            if (flexIds.length > 0) {
+              for (let i = 0; i < flexIds.length; i += 10) {
+                const batch = flexIds.slice(i, i + 10);
+                const refs = batch.map((id) =>
+                  admin.collection(COLLECTIONS.WALLPAPERS).doc(id)
+                );
+                const snap = await admin.getAll(...refs);
+                snap.forEach((d) => {
+                  if (d.exists && !seen.has(d.id)) {
+                    seen.add(d.id);
+                    const w = normalizeWallpaper(d.id, d.data() ?? {});
+                    if (w.visible === false || !w.published || w.deleted) return;
+                    candidates.push(w);
+                  }
+                });
+              }
+            }
+          } catch {
+            // FlexSearch unavailable (cold start / index not built) — skip
           }
         }
 
